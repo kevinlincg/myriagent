@@ -480,7 +480,7 @@ public sealed class LaunchdOriginRulesTests
     {
         LaunchdOriginRules.Parse("launchctl bootstrap gui/501 ~/Library/LaunchAgents/com.example.job.plist").Should().Equal(Hit(ScheduleVerb.Create, "com.example.job"));
         LaunchdOriginRules.Parse("launchctl load -w \"/Users/u/Library/LaunchAgents/com.example.job.plist\"").Should().Equal(Hit(ScheduleVerb.Create, "com.example.job"));
-        LaunchdOriginRules.Parse("launchctl bootout gui/$(id -u)/com.example.job").Should().Equal(Hit(ScheduleVerb.Delete, null), "網域是算出來的，看不出名稱");
+        LaunchdOriginRules.Parse("launchctl bootout gui/$(id -u)/com.example.job").Should().Equal(new[] { Hit(ScheduleVerb.Delete, null) }, "網域是算出來的，看不出名稱");
         LaunchdOriginRules.Parse("launchctl bootout gui/501/com.example.job").Should().Equal(Hit(ScheduleVerb.Delete, "com.example.job"));
         LaunchdOriginRules.Parse("sudo launchctl bootout system/com.example.daemon").Should().Equal(Hit(ScheduleVerb.Delete, "com.example.daemon"));
         LaunchdOriginRules.Parse("launchctl remove com.example.job").Should().Equal(Hit(ScheduleVerb.Delete, "com.example.job"));
