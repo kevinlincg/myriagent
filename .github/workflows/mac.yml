@@ -65,7 +65,7 @@ jobs:
             if [ "$i" = "12" ]; then screencapture -x screen-12s.png || true; fi
             sleep 1
           done
-          if kill -0 $PID 2>/dev/null; then echo "app still running after 70s: killing" | tee smoke-run.txt; sample $PID 2 -file sample.txt >/dev/null 2>&1; head -80 sample.txt; kill -9 $PID; fi
+          if kill -0 $PID 2>/dev/null; then echo "app still running after 70s: killing" | tee smoke-run.txt; sample $PID 2 -file sample.txt >/dev/null 2>&1; grep -v CallDescrWorkerInternal sample.txt | cut -c1-240 | head -150; kill -9 $PID; fi
           wait $PID
           echo "exit code: $?"
           echo "--- stdout/stderr"; tail -60 app-stdout.log || true
@@ -96,6 +96,7 @@ jobs:
             smoke.json
             screen-*.png
             app-stdout.log
+            sample.txt
       - name: Error summary
         if: failure()
         shell: bash

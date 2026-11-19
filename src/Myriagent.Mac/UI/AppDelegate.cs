@@ -87,6 +87,7 @@ internal sealed class AppDelegate(Stopwatch startup, AppStartup appStartup, Sing
     {
         InstanceHandover.ClearRunning(AppPaths.Root);
         instance.Dispose();
+        Log.Info("程序結束");
         Log.Flush();
     }
 }

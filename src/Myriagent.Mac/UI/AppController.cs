@@ -977,38 +977,65 @@ internal sealed class AppController : IAgentHost, IAppUpdateShell, IWindowHost, 
         }
     }
 
-    /// <summary>立即結束（初始化失敗、收尾做完之後）：存檔、釋放各服務，再請系統結束這個程序</summary>
+    /// <summary>
+    /// 立即結束（初始化失敗、收尾做完之後）：存檔、釋放各服務，再請系統結束這個程序。
+    /// 每一步各自接住例外並記下來：哪個服務收尾失敗都不能讓 app 關不掉（視窗已經藏起來，卡住的話使用者只能強制結束）
+    /// </summary>
     public void ExitImmediately()
     {
         if (ReadyToTerminate)
             return;
         Exiting = true;
         syncStartCancelled = true;
-        DetachSyncEvents();
-        remoteExec.Dispose();
-        Sync.Dispose();
-        foreach (var window in extraWindows.ToList())
-            RememberWindow(window);
-        Settings.Save();
-        updateCoordinator.Dispose();
-        updateManager.Dispose();
-        updateHelper.Dispose();
-        Hub.Dispose();
-        backgroundJournal.Dispose();
-        systemMonitor.Dispose();
-        voice.Dispose();
-        voiceTranscriber.Dispose();
-        Accounts.Dispose();
-        Cli.Dispose();
-        Thumbnails.Dispose();
-        Dispose();
-        foreach (var popout in popouts.ToList())
-            popout.Close();
-        foreach (var window in extraWindows.ToList())
-            window.Close();
-        mainWindow.Close();
+        ExitStep("網路事件", DetachSyncEvents);
+        ExitStep("遠端執行指令", remoteExec.Dispose);
+        ExitStep("同步", Sync.Dispose);
+        ExitStep("設定存檔", () =>
+        {
+            foreach (var window in extraWindows.ToList())
+                RememberWindow(window);
+            Settings.Save();
+        });
+        ExitStep("更新協調器", updateCoordinator.Dispose);
+        ExitStep("更新管理員", updateManager.Dispose);
+        ExitStep("換版幫手", updateHelper.Dispose);
+        ExitStep("中樞", Hub.Dispose);
+        ExitStep("背景活動日誌", backgroundJournal.Dispose);
+        ExitStep("電腦狀態", systemMonitor.Dispose);
+        ExitStep("語音通知", voice.Dispose);
+        ExitStep("語音辨識", voiceTranscriber.Dispose);
+        ExitStep("帳戶", Accounts.Dispose);
+        ExitStep("CLI", Cli.Dispose);
+        ExitStep("縮圖", Thumbnails.Dispose);
+        ExitStep("選單列與事件", Dispose);
+        ExitStep("視窗", () =>
+        {
+            foreach (var popout in popouts.ToList())
+                popout.Close();
+            foreach (var window in extraWindows.ToList())
+                window.Close();
+            mainWindow.Close();
+        });
         ReadyToTerminate = true;
+        Log.Info("收尾完成，結束程序");
+        Log.Flush();
         NSApplication.SharedApplication.Terminate(NSApplication.SharedApplication);
+    }
+
+    /// <summary>結束流程的一步：失敗只記錄，繼續下一步；花太久的也記下來（查「關不掉」用）</summary>
+    private static void ExitStep(string name, Action action)
+    {
+        var watch = Stopwatch.StartNew();
+        try
+        {
+            action();
+        }
+        catch (Exception ex)
+        {
+            Log.Error($"結束時「{name}」收尾失敗", ex);
+        }
+        if (watch.ElapsedMilliseconds >= 500)
+            Log.Info($"結束時「{name}」收尾花了 {watch.ElapsedMilliseconds} 毫秒");
     }
 
     /// <summary>刪掉上次沒送出的草稿留下的資料夾（背景執行緒；刪不乾淨的下次啟動再試）</summary>
