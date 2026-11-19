@@ -101,17 +101,26 @@ internal static class WebBridge
 
           const ATTRS = ['title', 'placeholder', 'aria-label'];
           const CONTENT = '.md, .u-box, pre, code, textarea, [contenteditable]';
-          const fix = (text) => text.replace(/(?<!終端機的 )Ctrl\+/g, '⌘');
+          // 介面網頁寫的是 Windows 的說法：排程頁的「工作排程器」在這裡是 launchd 與 crontab，「檔案總管」是 Finder
+          const WORDS = [['讀不到工作排程器', '讀不到這台的排程'], ['工作排程器記的上次', '系統記的上次'], ['工作排程器', 'launchd'],
+            ['代理在對話裡建立的 Windows 排程', '代理在對話裡建立的排程（launchd 的工作、crontab）'], ['Windows 排程', '排程（launchd、crontab）'],
+            ['完整定義（XML）', '完整定義'], ['檔案總管', 'Finder']];
+          const NEEDLE = /Ctrl\+|工作排程器|Windows 排程|完整定義（XML）|檔案總管/;
+          const fix = (text) => {
+            let next = text.replace(/(?<!終端機的 )Ctrl\+/g, '⌘');
+            for (const [from, to] of WORDS) if (next.includes(from)) next = next.split(from).join(to);
+            return next;
+          };
           const fixElement = (el) => {
             if (!el.getAttribute) return;
             for (const name of ATTRS) {
               const value = el.getAttribute(name);
-              if (value && value.includes('Ctrl+')) { const next = fix(value); if (next !== value) el.setAttribute(name, next); }
+              if (value && NEEDLE.test(value)) { const next = fix(value); if (next !== value) el.setAttribute(name, next); }
             }
           };
           const fixText = (node) => {
             const value = node.nodeValue;
-            if (!value || !value.includes('Ctrl+')) return;
+            if (!value || !NEEDLE.test(value)) return;
             const parent = node.parentElement;
             if (!parent || parent.closest(CONTENT)) return;
             const next = fix(value);
@@ -122,8 +131,8 @@ internal static class WebBridge
             if (node.nodeType !== 1) return;
             fixElement(node);
             if (!node.firstChild) return;
-            for (const el of node.querySelectorAll('[title*="Ctrl+"],[placeholder*="Ctrl+"],[aria-label*="Ctrl+"]')) fixElement(el);
-            if (!node.textContent.includes('Ctrl+')) return;
+            for (const el of node.querySelectorAll('[title*="Ctrl+"],[placeholder*="Ctrl+"],[aria-label*="Ctrl+"],[title*="檔案總管"],[title*="工作排程器"]')) fixElement(el);
+            if (!NEEDLE.test(node.textContent)) return;
             const walker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT);
             for (let text = walker.nextNode(); text; text = walker.nextNode()) fixText(text);
           };

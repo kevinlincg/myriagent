@@ -47,11 +47,17 @@ internal static class ScheduleOriginRules
 
     private static readonly Regex Com = new(@"Schedule\.Service|RegisterTaskDefinition", RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
+    /// <summary>
+    /// macOS、Linux 上也找 launchd 與 crontab 的指令（<see cref="LaunchdOriginRules"/>）。Windows 上不找：WSL 裡的 crontab 不是這台的排程
+    /// </summary>
+    internal static bool IncludeLaunchd { get; } = !OperatingSystem.IsWindows();
+
     /// <summary>快速篩選：文字裡有沒有可能碰到排程的字（逐字稿掃描先以這個略過大部分的內容）</summary>
     public static bool MayTouch(string text)
         => text.Contains("schtasks", StringComparison.OrdinalIgnoreCase)
            || text.Contains("ScheduledTask", StringComparison.OrdinalIgnoreCase)
-           || text.Contains("Schedule.Service", StringComparison.OrdinalIgnoreCase);
+           || text.Contains("Schedule.Service", StringComparison.OrdinalIgnoreCase)
+           || (IncludeLaunchd && LaunchdOriginRules.MayTouch(text));
 
     /// <summary>會改變排程的動作（不含執行、停止）</summary>
     public static bool Mutates(ScheduleVerb verb) => verb is ScheduleVerb.Create or ScheduleVerb.Change or ScheduleVerb.Delete
@@ -64,6 +70,8 @@ internal static class ScheduleOriginRules
             return hits;
         // 接續到下一行的指令（PowerShell 的反引號、cmd 的 ^、bash 的反斜線）先接成一行
         text = LineContinuation.Replace(text, " ");
+        // macOS 的排程（名稱是標籤或 .plist 的路徑，不走下面 Windows 工作名稱的檢查）
+        var launchd = IncludeLaunchd ? LaunchdOriginRules.Parse(text) : Array.Empty<ScheduleCommandHit>();
         // ${Name} 寫成 $Name（大括號會被切成記號）
         text = BracedVariable.Replace(text, "$$${n}");
         var vars = Variables(text);
@@ -83,7 +91,7 @@ internal static class ScheduleOriginRules
         }
         // 名稱是變數的：代入同一段文字裡指定的值（腳本裡常見 $TaskName = 'X'）；不可能是工作名稱的字丟掉
         return hits.Select(h => h.Name != null && Resolve(h.Name, vars) is var resolved ? h with { Name = ValidName(resolved) ? resolved : null } : h)
-            .Distinct().ToList();
+            .Concat(launchd).Distinct().ToList();
     }
 
     private static Dictionary<string, string> Variables(string text)
@@ -364,6 +372,9 @@ internal static class ScheduleOriginRules
     {
         if (string.IsNullOrWhiteSpace(hitName))
             return false;
+        // macOS 的排程（路徑是 .plist 的完整路徑或 crontab 的代號，不是反斜線開頭）
+        if (!taskPath.StartsWith('\\'))
+            return LaunchdOriginRules.NameMatches(hitName, taskPath);
         var name = hitName.Trim().Replace('/', '\\');
         if (name.Contains('\\'))
             return taskPath.Equals(name.StartsWith('\\') ? name : "\\" + name, StringComparison.OrdinalIgnoreCase);

@@ -19,10 +19,18 @@ internal sealed record ScheduledTaskInfo(
     int MissedRuns,
     string? RepoRoot)
 {
-    public string Name => Path[(Path.LastIndexOf('\\') + 1)..];
+    /// <summary>
+    /// 給人看的名稱（macOS：launchd 工作的標籤、crontab 那一行的指令）；null＝照路徑的最後一段（Windows 的工作一律是 null）
+    /// </summary>
+    public string? DisplayName { get; init; }
 
-    /// <summary>所在的資料夾（「\」或「\資料夾」）</summary>
-    public string Folder => Path.LastIndexOf('\\') is var i and > 0 ? Path[..i] : "\\";
+    public string Name => DisplayName ?? Path[(Path.LastIndexOfAny(Separators) + 1)..];
+
+    /// <summary>所在的資料夾（「\」或「\資料夾」；macOS 是 .plist 所在的資料夾，crontab 的是「crontab」）</summary>
+    public string Folder => Path.LastIndexOfAny(Separators) is var i and > 0 ? Path[..i] : Path.StartsWith('/') ? "/" : "\\";
+
+    /// <summary>Windows 的工作路徑以反斜線分隔，macOS 的是檔案路徑</summary>
+    private static readonly char[] Separators = { '\\', '/' };
 }
 
 /// <summary>工作排程器的 TASK_STATE</summary>

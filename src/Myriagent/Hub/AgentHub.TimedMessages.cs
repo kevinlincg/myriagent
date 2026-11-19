@@ -437,7 +437,9 @@ internal sealed partial class AgentHub
 
     /// <summary>給代理的說明多一段：myriagent-schedule 的用法（接上了而且 app 的資料夾有 myriagent-schedule.exe 才給）</summary>
     private string TimedInstructions()
-        => timedMessages != null && TimedToolAvailable ? TimedHubRules.InstructionsHint : string.Empty;
+        => timedMessages != null && TimedToolAvailable
+            ? OperatingSystem.IsWindows() ? TimedHubRules.InstructionsHint : TimedHubRules.InstructionsHint.Replace("Windows 排程", "launchd 或 crontab 的排程")
+            : string.Empty;
 
     private void StopTimed()
     {

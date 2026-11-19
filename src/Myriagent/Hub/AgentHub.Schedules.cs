@@ -626,8 +626,17 @@ internal sealed partial class AgentHub
         MarkAccountsDirty();
     }
 
-    internal static string ScheduleCreatePrompt(string machine)
-        => $"這是 Clode Myriagent 排程頁交給你的工作：幫我在這台電腦（{machine}）建立一個 Windows 排程。\n\n"
+    /// <summary>launchd＝macOS 的寫法（launchd 的工作）；null＝照這台電腦（Windows 以外都是）</summary>
+    internal static string ScheduleCreatePrompt(string machine, bool? launchd = null)
+        => launchd ?? !OperatingSystem.IsWindows()
+            ? $"這是 Clode Myriagent 排程頁交給你的工作：幫我在這台電腦（{machine}）建立一個排程（macOS 的 launchd 工作）。\n\n"
+              + "## 要做的事\n\n（請在這裡寫要定時做什麼、多久一次，例如「每天 03:00 備份這個資料夾的資料庫」）\n\n"
+              + "## 規則\n\n"
+              + "- 建成使用者的 launchd 工作：定義檔放在 `~/Library/LaunchAgents/標籤.plist`（標籤用反過來的網域寫法，例如 `com.我的名字.備份`），用 `launchctl bootstrap gui/$(id -u) plist路徑` 載入；不要用 crontab（電腦睡著時不會補跑，Myriagent 也看不到它的執行結果）。要執行的腳本放在這個工作資料夾（有 git 就一起提交）。\n"
+              + "- 定時用 StartCalendarInterval（幾點幾分、星期幾）或 StartInterval（每隔幾秒）。預設只在我登入時執行；要開機就跑、以 root 執行（/Library/LaunchDaemons，要 sudo），先問我。\n"
+              + "- plist 裡設定 StandardOutPath 與 StandardErrorPath（失敗時找得到原因），腳本結束碼 0 才代表成功。launchd 給的環境很少（PATH 只有 /usr/bin:/bin:/usr/sbin:/sbin），需要的路徑寫在腳本或 EnvironmentVariables 裡。\n"
+              + "- 建好之後用 `launchctl kickstart gui/$(id -u)/標籤` 手動執行一次確認成功；Myriagent 會在這一輪結束後自動掃描，排程頁會顯示這個排程與這個對話。\n"
+            : $"這是 Clode Myriagent 排程頁交給你的工作：幫我在這台電腦（{machine}）建立一個 Windows 排程。\n\n"
            + "## 要做的事\n\n（請在這裡寫要定時做什麼、多久一次，例如「每天 03:00 備份這個資料夾的資料庫」）\n\n"
            + "## 規則\n\n"
            + "- 用 `schtasks` 或 PowerShell 的 Register-ScheduledTask 建立；要執行的腳本放在這個工作資料夾（有 git 就一起提交）。\n"

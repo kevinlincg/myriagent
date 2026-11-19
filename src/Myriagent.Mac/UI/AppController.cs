@@ -129,6 +129,8 @@ internal sealed class AppController : IAgentHost, IAppUpdateShell, IWindowHost, 
         // 對話框的燈號（資料流、網路、硬碟）與輸入框下方的 CPU 波形
         Hub.AttachActivity(new ActivitySampler());
         Hub.AttachHealth(new HealthScanner(new HealthMachine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile))));
+        // 排程頁：這台的 launchd 工作與 crontab（Windows 版讀的是工作排程器）；Myriagent 的定時訊息跟著一起掛
+        Hub.AttachSchedules(new Myriagent.Schedules.MacScheduleReader(new[] { Path.Combine(AppPaths.Root, "conversations") }), Path.Combine(AppPaths.Root, "schedules"));
         Hub.AttachScheduleTranscripts(Hub.DefaultTranscriptRoots);
         Hub.AttachVoice(voiceTranscriber);
         Hub.AttachMediaKeeper();

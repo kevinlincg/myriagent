@@ -27,10 +27,13 @@ internal static class ScheduleAgentPromptRules
     public static string AutoDisplay(ScheduleBrief b, ScheduleRunRecord run)
         => $"（自動診斷）排程 {b.Task.Path} 在 {run.At:M/d HH:mm} 執行失敗（{ScheduleResultRules.Classify(run.Code).Text}），請找出原因，先不要修改。";
 
-    public static string Build(string task, ScheduleBrief b)
+    /// <summary>launchd＝macOS 的排程（launchd 的 .plist 或 crontab 的一行）；null＝照這台電腦（Windows 以外都是）</summary>
+    public static string Build(string task, ScheduleBrief b, bool? launchd = null)
     {
+        bool mac = launchd ?? !OperatingSystem.IsWindows();
+        bool cron = mac && IsCron(b.Task);
         var sb = new StringBuilder();
-        sb.Append("這是 Clode Myriagent 排程頁交給你的工作，對象是這台電腦（").Append(b.Machine).Append("）的 Windows 排程。\n\n");
+        sb.Append("這是 Clode Myriagent 排程頁交給你的工作，對象是這台電腦（").Append(b.Machine).Append(mac ? cron ? "）的 crontab 排程。\n\n" : "）的 launchd 排程。\n\n" : "）的 Windows 排程。\n\n");
         AppendTask(sb, task, b);
         sb.Append("\n## 排程\n\n");
         AppendFacts(sb, b);
@@ -38,14 +41,35 @@ internal static class ScheduleAgentPromptRules
         AppendChanges(sb, b);
         if (!string.IsNullOrWhiteSpace(b.Task.Xml))
         {
-            sb.Append("\n## 完整定義（工作排程器的 XML）\n\n```xml\n").Append(b.Task.Xml!.Trim()).Append("\n```\n");
+            if (cron)
+                sb.Append("\n## 完整定義（crontab 的這一行）\n\n```\n").Append(b.Task.Xml!.Trim()).Append("\n```\n");
+            else
+                sb.Append(mac ? "\n## 完整定義（launchd 的 plist）\n\n```xml\n" : "\n## 完整定義（工作排程器的 XML）\n\n```xml\n").Append(b.Task.Xml!.Trim()).Append("\n```\n");
         }
         sb.Append("\n## 規則\n\n");
-        sb.Append("- 改排程一律用 `schtasks` 或 PowerShell 的 ScheduledTasks 模組（Register-／Set-／Unregister-／Enable-／Disable-ScheduledTask）。\n");
-        sb.Append("- 刪除排程、改執行身分或提高權限之前，先問我。要系統管理員權限的操作會跳 UAC，請先告訴我原因。\n");
+        if (cron)
+        {
+            sb.Append("- 這個排程在目前使用者的 crontab（`crontab -l` 看得到）。改它用 `crontab -l` 取出、改好再以 `crontab 檔案` 寫回，不要動到別行。\n");
+            sb.Append("- cron 執行時的環境很少（PATH 只有 /usr/bin:/bin、工作資料夾是使用者資料夾）、電腦睡著時不會補跑；需要這些的話建議改成 launchd 的工作，改之前先問我。\n");
+            sb.Append("- 刪除排程之前，先問我。\n");
+        }
+        else if (mac)
+        {
+            sb.Append("- 這個排程是 launchd 的工作，定義在上面「名稱」那個 .plist。改定義就改那個檔，改完要重新載入才生效：`launchctl bootout 網域/標籤` 再 `launchctl bootstrap 網域 plist路徑`（使用者的工作網域是 `gui/$(id -u)`，/Library/LaunchDaemons 的是 `system`）。\n");
+            sb.Append("- 立刻執行一次用 `launchctl kickstart 網域/標籤`；看狀態與上次的結束碼用 `launchctl print 網域/標籤`。\n");
+            sb.Append("- 刪除排程、改執行身分之前，先問我。/Library 底下的工作要系統管理員（sudo），請先告訴我原因。\n");
+        }
+        else
+        {
+            sb.Append("- 改排程一律用 `schtasks` 或 PowerShell 的 ScheduledTasks 模組（Register-／Set-／Unregister-／Enable-／Disable-ScheduledTask）。\n");
+            sb.Append("- 刪除排程、改執行身分或提高權限之前，先問我。要系統管理員權限的操作會跳 UAC，請先告訴我原因。\n");
+        }
         sb.Append("- 改完不必再列出排程清單：Myriagent 會在這一輪結束後自動重新掃描，排程頁會記下這個對話做的變更。\n");
         return sb.ToString();
     }
+
+    /// <summary>crontab 的排程（macOS 的讀取器把執行身分的種類記成 CronRules.LogonType）</summary>
+    public static bool IsCron(ScheduledTaskInfo t) => t.Definition?.LogonType == CronRules.LogonType;
 
     private static void AppendTask(StringBuilder sb, string task, ScheduleBrief b)
     {
@@ -175,7 +199,7 @@ internal static class ScheduleAgentPromptRules
     /// <summary>執行身分：「只在使用者登入時」「不論使用者是否登入」，加上以最高權限</summary>
     public static string RunAsText(ScheduleDefinition d)
     {
-        var who = d.RunAs ?? "（未指定）";
+        var who = d.RunAs ?? (d.LogonType == LaunchdPlistRules.AgentLogonType ? "登入的使用者" : "（未指定）");
         var when = d.LogonType switch
         {
             "InteractiveToken" => "只在使用者登入時執行",
@@ -183,6 +207,10 @@ internal static class ScheduleAgentPromptRules
             "S4U" => "不論使用者是否登入都執行（不存密碼）",
             "ServiceAccount" => "以服務帳戶執行",
             "Group" => "群組成員登入時執行",
+            // macOS（LaunchdPlistRules、CronRules）
+            LaunchdPlistRules.AgentLogonType => d.RunAs != null ? "只在使用者登入時執行" : "每個使用者登入時各自執行",
+            LaunchdPlistRules.DaemonLogonType => "開機後就執行，不論使用者是否登入",
+            CronRules.LogonType => "不論使用者是否登入都執行（cron）",
             null => "",
             _ => d.LogonType,
         };
