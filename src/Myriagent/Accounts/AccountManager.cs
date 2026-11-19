@@ -476,7 +476,7 @@ internal sealed class AccountManager : IDisposable
     /// 隔離帳戶的資料夾要先放好的設定：Grok 的 config.toml 標記「Claude 設定已匯入過」，grok 才不會讀使用者的 ~/.claude
     /// （新增時、每次啟動時檢查，還原的資料夾也補上）
     /// </summary>
-    private static void PrepareIsolatedFolder(AgentAccount account)
+    internal static void PrepareIsolatedFolder(AgentAccount account)
     {
         // 使用者原有的資料夾（AddExisting）不動：config.toml 是他自己的
         if (account.Provider == AgentProvider.Grok && !account.IsSystemDefault && !account.ExistingFolder && !string.IsNullOrWhiteSpace(account.ConfigDirectory))
@@ -604,7 +604,8 @@ internal sealed class AccountManager : IDisposable
     {
         var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
         var folder = ExistingFolderRules.Clean(directory, home);
-        var check = ExistingFolderRules.Check(provider, folder, Directory.Exists, DefaultDirectories(provider, home), UsedDirectories(provider));
+        var check = ExistingFolderRules.Check(provider, folder, Directory.Exists, DefaultDirectories(provider, home), UsedDirectories(provider),
+            ForbiddenDirectories(provider, home), dir => LooksLikeConfigFolder(provider, dir));
         if (check != ExistingFolderCheck.Ok)
             throw new InvalidOperationException(ExistingFolderRules.Describe(check, provider, folder));
 
@@ -651,6 +652,33 @@ internal sealed class AccountManager : IDisposable
     /// <summary>「本機預設」帳戶用的資料夾：CLI 自己的預設位置，以及這次啟動實際用的（繼承的 CLAUDE_CONFIG_DIR／CODEX_HOME／GROK_HOME）</summary>
     private static string[] DefaultDirectories(AgentProvider provider, string home)
         => new[] { ExistingFolderRules.BuiltInDirectory(provider, home), AccountRules.ResolveConfigDirectory(new AgentAccount { Provider = provider }) };
+
+    /// <summary>
+    /// 一看就不該拿來當設定資料夾的地方：使用者資料夾本身、app 自己的資料夾、別種 CLI 的設定資料夾（它自己的預設位置與這次啟動實際用的）
+    /// </summary>
+    private static List<string> ForbiddenDirectories(AgentProvider provider, string home)
+    {
+        var result = new List<string> { home, AppPaths.Root };
+        foreach (var other in AgentProviders.All.Where(p => p != provider))
+            result.AddRange(DefaultDirectories(other, home));
+        return result;
+    }
+
+    /// <summary>
+    /// 資料夾裡有這種 CLI 用過的痕跡，或是空的（空的可以當成新的設定資料夾）。讀不到內容當成不是：寧可請使用者確認路徑，也不要把 CLI 的東西寫進不相干的資料夾
+    /// </summary>
+    private static bool LooksLikeConfigFolder(AgentProvider provider, string directory)
+    {
+        try
+        {
+            return ExistingFolderRules.HasMarker(provider, directory, path => File.Exists(path) || Directory.Exists(path))
+                   || !Directory.EnumerateFileSystemEntries(directory).Any();
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return false;
+        }
+    }
 
     /// <summary>清單裡這種 CLI 的帳戶實際用的資料夾</summary>
     private IEnumerable<string> UsedDirectories(AgentProvider provider)

@@ -19,6 +19,12 @@ internal enum ExistingFolderCheck
     /// <summary>資料夾不存在</summary>
     Missing,
 
+    /// <summary>一看就不該拿來當設定資料夾的地方：磁碟的根目錄、使用者資料夾本身、app 自己的資料夾、別種 CLI 的設定資料夾</summary>
+    Forbidden,
+
+    /// <summary>裡面有東西、卻沒有這種 CLI 用過的痕跡（多半是路徑打錯了：CLI 之後會把對話紀錄與登入寫進去）</summary>
+    NotConfigFolder,
+
     /// <summary>就是「本機預設」帳戶用的資料夾（CLI 自己的預設位置，或這次啟動繼承的 CLAUDE_CONFIG_DIR／CODEX_HOME／GROK_HOME）</summary>
     IsDefault,
 
@@ -47,8 +53,11 @@ internal static class ExistingFolderRules
     };
 
     /// <summary>
-    /// 使用者輸入的資料夾路徑：去掉頭尾的空白與引號、開頭的 ~ 換成使用者資料夾、去掉結尾的分隔符號（整個就是根目錄的不去）。空白回 null。
-    /// 不轉成完整路徑、不解開符號連結：Claude Code 以 CLAUDE_CONFIG_DIR 的字面算鑰匙圈項目的名稱，要和使用者在終端機設的同一個寫法
+    /// 使用者輸入的資料夾路徑：去掉頭尾的空白與引號、開頭的 ~ 換成使用者資料夾、完整路徑寫成正規的樣子（重複的分隔符號、. 與 .. 都化掉；
+    /// 不解開符號連結）、去掉結尾的分隔符號（整個就是根目錄的不去）。空白回 null；不是完整路徑的原樣回傳（<see cref="Check"/> 會擋下）。
+    /// 寫成正規的樣子是為了讓 app 啟動的 CLI 與 app 自己讀登入（macOS 的鑰匙圈項目名稱由 CLAUDE_CONFIG_DIR 的字面算出，MacClaudeKeychain）
+    /// 看到同一個字串。已知的限制：使用者在終端機把 CLAUDE_CONFIG_DIR 寫成別的樣子（例如結尾多一個 /）時，macOS 的 Claude Code 把登入存在
+    /// 另一個鑰匙圈項目，加進來會顯示未登入，要在 app 裡再登入一次
     /// </summary>
     public static string? Clean(string? input, string userProfile)
     {
@@ -58,17 +67,34 @@ internal static class ExistingFolderRules
         if (text == "~")
             text = userProfile;
         else if (text.StartsWith("~/", StringComparison.Ordinal) || text.StartsWith("~\\", StringComparison.Ordinal))
-            text = Path.Combine(userProfile, text[2..]);
+        {
+            // ~//x 的 x 不能變成根目錄底下的 /x（Path.Combine 遇到分隔符號開頭的第二段會丟掉第一段）
+            var rest = text[2..].TrimStart('/', '\\');
+            text = rest.Length == 0 ? userProfile : Path.Combine(userProfile, rest);
+        }
+        if (Path.IsPathFullyQualified(text))
+        {
+            try
+            {
+                text = Path.GetFullPath(text);
+            }
+            catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException)
+            {
+                return text;
+            }
+        }
         var trimmed = text.TrimEnd('/', '\\');
         return trimmed.Length == 0 || trimmed.EndsWith(':') ? text : trimmed;
     }
 
     /// <summary>
     /// 這個資料夾（已經過 <see cref="Clean"/>）能不能加成帳戶。defaultDirectories＝「本機預設」帳戶用的資料夾（CLI 自己的預設位置與這次啟動實際用的）；
-    /// usedDirectories＝清單裡同一種 CLI 的帳戶實際用的資料夾
+    /// usedDirectories＝清單裡同一種 CLI 的帳戶實際用的資料夾；forbiddenDirectories＝一看就不該用的地方（使用者資料夾本身、app 自己的資料夾、
+    /// 別種 CLI 的設定資料夾；磁碟的根目錄這裡自己判斷）；looksLikeConfig＝資料夾裡有這種 CLI 用過的痕跡（<see cref="Markers"/>）或是空的
+    /// （空的資料夾可以當成新的設定資料夾，之後在帳戶卡登入）
     /// </summary>
     public static ExistingFolderCheck Check(AgentProvider provider, string? directory, Func<string, bool> directoryExists,
-        IEnumerable<string> defaultDirectories, IEnumerable<string> usedDirectories)
+        IEnumerable<string> defaultDirectories, IEnumerable<string> usedDirectories, IEnumerable<string> forbiddenDirectories, Func<string, bool> looksLikeConfig)
     {
         if (!AccountRules.SupportsIsolatedAccounts(provider))
             return ExistingFolderCheck.Unsupported;
@@ -82,8 +108,31 @@ internal static class ExistingFolderRules
             return ExistingFolderCheck.IsDefault;
         if (usedDirectories.Any(d => SameFolder(d, directory)))
             return ExistingFolderCheck.InUse;
+        if (IsRoot(directory) || forbiddenDirectories.Any(d => SameFolder(d, directory)))
+            return ExistingFolderCheck.Forbidden;
+        if (!looksLikeConfig(directory))
+            return ExistingFolderCheck.NotConfigFolder;
         return ExistingFolderCheck.Ok;
     }
+
+    /// <summary>整個路徑就是磁碟的根目錄（/、C:\）</summary>
+    public static bool IsRoot(string directory)
+    {
+        try
+        {
+            return SameFolder(Path.GetPathRoot(Path.GetFullPath(directory)), directory);
+        }
+        catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException)
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// 資料夾裡有沒有這種 CLI 用過的痕跡（<see cref="Markers"/> 的任何一個）。entryExists＝這個路徑的檔案或資料夾存不存在
+    /// </summary>
+    public static bool HasMarker(AgentProvider provider, string directory, Func<string, bool> entryExists)
+        => Markers(provider).Any(m => entryExists(Path.Combine(directory, m)));
 
     /// <summary>檢查不過時給使用者看的說明（Ok 回空字串）</summary>
     public static string Describe(ExistingFolderCheck check, AgentProvider provider, string? directory)
@@ -96,6 +145,8 @@ internal static class ExistingFolderRules
             ExistingFolderCheck.Empty => "請輸入設定資料夾的路徑",
             ExistingFolderCheck.NotAbsolute => $"請輸入完整的路徑：{directory}",
             ExistingFolderCheck.Missing => $"找不到這個資料夾：{directory}",
+            ExistingFolderCheck.Forbidden => $"這個資料夾不能當成 {name} 的設定資料夾：{directory}",
+            ExistingFolderCheck.NotConfigFolder => $"這個資料夾看起來不是 {name} 的設定資料夾（裡面有別的東西，卻沒有 {name} 用過的痕跡）：{directory}",
             ExistingFolderCheck.IsDefault => $"這是 {name} 預設的設定資料夾，「本機預設」帳戶用的就是它：{directory}",
             ExistingFolderCheck.InUse => $"已經有帳戶在用這個資料夾：{directory}",
             _ => throw new ArgumentOutOfRangeException(nameof(check), check, null),
@@ -159,11 +210,10 @@ internal static class ExistingFolderRules
         if (!AccountRules.SupportsIsolatedAccounts(provider))
             return Array.Empty<string>();
         var excluded = defaultDirectories.Concat(usedDirectories).ToList();
-        var markers = Markers(provider);
         return homeDirectories
             .Where(dir => IsCandidateName(provider, Path.GetFileName(Path.TrimEndingDirectorySeparator(dir))))
             .Where(dir => !excluded.Any(x => SameFolder(x, dir)))
-            .Where(dir => markers.Any(m => entryExists(Path.Combine(dir, m))))
+            .Where(dir => HasMarker(provider, dir, entryExists))
             .OrderBy(dir => dir, StringComparer.OrdinalIgnoreCase)
             .ToList();
     }

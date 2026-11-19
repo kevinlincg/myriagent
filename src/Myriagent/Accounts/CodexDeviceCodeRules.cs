@@ -122,11 +122,12 @@ internal static class CodexDeviceCodeRules
 
     /// <summary>
     /// 這個帳戶能不能用裝置碼登入：Codex、Grok（Grok 的登入網址本來就帶裝置碼，設計 2026-10-22-grok-antigravity-sync D5）；隔離帳戶一律可以，
-    /// 系統預設帳戶只在本來就未登入時可以（設計 6.4：登在已登入的預設資料夾會撤銷使用者原本的登入，含 VS Code 擴充）
+    /// 系統預設帳戶只在本來就未登入時可以（設計 6.4：登在已登入的預設資料夾會撤銷使用者原本的登入，含 VS Code 擴充）。
+    /// 使用者原有的資料夾（AgentAccount.ExistingFolder）比照系統預設帳戶：那份登入他在終端機也在用
     /// </summary>
     public static bool CanUseDeviceCode(AgentAccount account, AccountStatus status) => account.Provider switch
     {
-        AgentProvider.Codex or AgentProvider.Grok => !account.IsSystemDefault || status == AccountStatus.NotLoggedIn,
+        AgentProvider.Codex or AgentProvider.Grok => (!account.IsSystemDefault && !account.ExistingFolder) || status == AccountStatus.NotLoggedIn,
         AgentProvider.Claude => false,
         AgentProvider.Antigravity => false,
         _ => throw new ArgumentOutOfRangeException(nameof(account), account.Provider, "未知的代理種類"),
@@ -140,10 +141,14 @@ internal static class CodexDeviceCodeRules
     {
         AgentProvider.Codex => CanUseDeviceCode(account, status)
             ? null
-            : "這台預設的 Codex 帳戶不是未登入狀態，用裝置碼登入會撤銷原本的登入（含 VS Code 擴充）；請改新增一個 Codex 帳戶再用裝置碼登入",
+            : account.ExistingFolder
+                ? "這個 Codex 帳戶用的是你原有的設定資料夾，而且不是未登入狀態，用裝置碼登入會撤銷原本的登入（含終端機）；請改新增一個 Codex 帳戶再用裝置碼登入"
+                : "這台預設的 Codex 帳戶不是未登入狀態，用裝置碼登入會撤銷原本的登入（含 VS Code 擴充）；請改新增一個 Codex 帳戶再用裝置碼登入",
         AgentProvider.Grok => CanUseDeviceCode(account, status)
             ? null
-            : "這台預設的 Grok 帳戶不是未登入狀態，用裝置碼登入會換掉原本的登入；請改新增一個 Grok 帳戶再用裝置碼登入",
+            : account.ExistingFolder
+                ? "這個 Grok 帳戶用的是你原有的設定資料夾，而且不是未登入狀態，用裝置碼登入會換掉原本的登入；請改新增一個 Grok 帳戶再用裝置碼登入"
+                : "這台預設的 Grok 帳戶不是未登入狀態，用裝置碼登入會換掉原本的登入；請改新增一個 Grok 帳戶再用裝置碼登入",
         AgentProvider.Claude or AgentProvider.Antigravity => "只有 Codex、Grok 帳戶能用裝置碼登入",
         _ => throw new ArgumentOutOfRangeException(nameof(account), account.Provider, "未知的代理種類"),
     };

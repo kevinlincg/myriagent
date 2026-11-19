@@ -25,6 +25,12 @@ public sealed class ExistingFolderRulesTests
         ExistingFolderRules.Clean("/", Home).Should().Be("/", "整個就是根目錄的不去");
         ExistingFolderRules.Clean("C:\\", Home).Should().Be("C:\\");
         ExistingFolderRules.Clean("~x/.claude", Home).Should().Be("~x/.claude", "只認自己的使用者資料夾");
+        ExistingFolderRules.Clean("~//.claude-work", Home).Should().Be(InHome(".claude-work"), "~ 後面多打的分隔符號不能讓它變成根目錄底下的路徑");
+        ExistingFolderRules.Clean("~/", Home).Should().Be(Home);
+        var sep = Path.DirectorySeparatorChar;
+        ExistingFolderRules.Clean(Home + sep + sep + ".claude-work", Home).Should().Be(InHome(".claude-work"), "重複的分隔符號化掉：app 與它啟動的 CLI 要看到同一個字串");
+        ExistingFolderRules.Clean(InHome("x") + sep + ".." + sep + ".claude-work", Home).Should().Be(InHome(".claude-work"));
+        ExistingFolderRules.Clean(".claude-work", Home).Should().Be(".claude-work", "不是完整路徑的原樣回傳，由 Check 擋下");
     }
 
     [Fact]
@@ -33,8 +39,9 @@ public sealed class ExistingFolderRulesTests
         var work = InHome(".claude-work");
         var defaults = new[] { InHome(".claude") };
         var used = new[] { InHome(".claude-alt") };
-        ExistingFolderCheck Run(AgentProvider provider, string? directory, bool exists = true)
-            => ExistingFolderRules.Check(provider, directory, _ => exists, defaults, used);
+        var forbidden = new[] { Home, InHome(".codex") };
+        ExistingFolderCheck Run(AgentProvider provider, string? directory, bool exists = true, bool looksLikeConfig = true)
+            => ExistingFolderRules.Check(provider, directory, _ => exists, defaults, used, forbidden, _ => looksLikeConfig);
 
         Run(AgentProvider.Claude, work).Should().Be(ExistingFolderCheck.Ok);
         Run(AgentProvider.Codex, work).Should().Be(ExistingFolderCheck.Ok);
@@ -49,6 +56,26 @@ public sealed class ExistingFolderRulesTests
         Run(AgentProvider.Claude, InHome(".claude-alt")).Should().Be(ExistingFolderCheck.InUse);
         Run(AgentProvider.Claude, InHome(".Claude-Alt")).Should().Be(ExistingFolderCheck.InUse);
         Run(AgentProvider.Claude, InHome(".claude"), exists: false).Should().Be(ExistingFolderCheck.Missing, "不存在的先說不存在");
+        Run(AgentProvider.Claude, Home).Should().Be(ExistingFolderCheck.Forbidden, "使用者資料夾本身");
+        Run(AgentProvider.Claude, Home + Path.DirectorySeparatorChar).Should().Be(ExistingFolderCheck.Forbidden);
+        Run(AgentProvider.Claude, InHome(".codex")).Should().Be(ExistingFolderCheck.Forbidden, "別種 CLI 的設定資料夾");
+        Run(AgentProvider.Claude, Path.GetPathRoot(Home)).Should().Be(ExistingFolderCheck.Forbidden, "磁碟的根目錄");
+        Run(AgentProvider.Claude, InHome("Documents"), looksLikeConfig: false).Should().Be(ExistingFolderCheck.NotConfigFolder, "裡面有別的東西卻沒有用過的痕跡");
+        Run(AgentProvider.Claude, Home, looksLikeConfig: false).Should().Be(ExistingFolderCheck.Forbidden, "不該用的先說不該用");
+        Run(AgentProvider.Claude, InHome(".claude-alt"), looksLikeConfig: false).Should().Be(ExistingFolderCheck.InUse);
+    }
+
+    [Fact]
+    public void IsRoot_HasMarker()
+    {
+        ExistingFolderRules.IsRoot(Path.GetPathRoot(Home)!).Should().BeTrue();
+        ExistingFolderRules.IsRoot(Home).Should().BeFalse();
+        var entries = new HashSet<string> { Path.Combine(InHome(".claude-work"), "projects"), Path.Combine(InHome(".codex-work"), "auth.json") };
+        ExistingFolderRules.HasMarker(AgentProvider.Claude, InHome(".claude-work"), entries.Contains).Should().BeTrue();
+        ExistingFolderRules.HasMarker(AgentProvider.Claude, InHome(".codex-work"), entries.Contains).Should().BeFalse("auth.json 是 Codex、Grok 的");
+        ExistingFolderRules.HasMarker(AgentProvider.Codex, InHome(".codex-work"), entries.Contains).Should().BeTrue();
+        ExistingFolderRules.HasMarker(AgentProvider.Grok, InHome(".codex-work"), entries.Contains).Should().BeTrue();
+        ExistingFolderRules.HasMarker(AgentProvider.Antigravity, InHome(".codex-work"), _ => true).Should().BeFalse();
     }
 
     [Fact]
@@ -62,24 +89,25 @@ public sealed class ExistingFolderRulesTests
         ExistingFolderRules.Describe(ExistingFolderCheck.IsDefault, AgentProvider.Codex, "/a/b").Should().Contain("Codex 預設的設定資料夾");
     }
 
+    // AgentProvider 是 internal，不能當 public 測試方法的參數：以名稱傳
     [Theory]
-    [InlineData(AgentProvider.Claude, ".claude", true)]
-    [InlineData(AgentProvider.Claude, ".claude-work", true)]
-    [InlineData(AgentProvider.Claude, ".claude_alt", true)]
-    [InlineData(AgentProvider.Claude, ".claude.old", true)]
-    [InlineData(AgentProvider.Claude, ".Claude-Work", true)]
-    [InlineData(AgentProvider.Claude, ".claudex", false)]
-    [InlineData(AgentProvider.Claude, "claude-work", false)]
-    [InlineData(AgentProvider.Claude, ".codex-work", false)]
-    [InlineData(AgentProvider.Claude, "", false)]
-    [InlineData(AgentProvider.Claude, null, false)]
-    [InlineData(AgentProvider.Codex, ".codex-work", true)]
-    [InlineData(AgentProvider.Codex, ".claude-work", false)]
-    [InlineData(AgentProvider.Grok, ".grok-2", true)]
-    [InlineData(AgentProvider.Antigravity, ".gemini", false)]
-    [InlineData(AgentProvider.Antigravity, ".claude-work", false)]
-    public void IsCandidateName_名稱要是設定資料夾的開頭再接分隔字元(AgentProvider provider, string? name, bool expected)
-        => ExistingFolderRules.IsCandidateName(provider, name).Should().Be(expected);
+    [InlineData("Claude", ".claude", true)]
+    [InlineData("Claude", ".claude-work", true)]
+    [InlineData("Claude", ".claude_alt", true)]
+    [InlineData("Claude", ".claude.old", true)]
+    [InlineData("Claude", ".Claude-Work", true)]
+    [InlineData("Claude", ".claudex", false)]
+    [InlineData("Claude", "claude-work", false)]
+    [InlineData("Claude", ".codex-work", false)]
+    [InlineData("Claude", "", false)]
+    [InlineData("Claude", null, false)]
+    [InlineData("Codex", ".codex-work", true)]
+    [InlineData("Codex", ".claude-work", false)]
+    [InlineData("Grok", ".grok-2", true)]
+    [InlineData("Antigravity", ".gemini", false)]
+    [InlineData("Antigravity", ".claude-work", false)]
+    public void IsCandidateName_名稱要是設定資料夾的開頭再接分隔字元(string provider, string? name, bool expected)
+        => ExistingFolderRules.IsCandidateName(Enum.Parse<AgentProvider>(provider), name).Should().Be(expected);
 
     [Fact]
     public void Find_只列名稱像_有用過的痕跡_不是預設也沒人在用的資料夾_依名稱排序()
@@ -136,6 +164,21 @@ public sealed class ExistingFolderRulesTests
         ExistingFolderRules.BuiltInDirectory(AgentProvider.Claude, Home).Should().Be(InHome(".claude"));
         ExistingFolderRules.BuiltInDirectory(AgentProvider.Codex, Home).Should().Be(InHome(".codex"));
         ExistingFolderRules.BuiltInDirectory(AgentProvider.Grok, Home).Should().Be(InHome(".grok"));
+    }
+
+    [Fact]
+    public void 現有資料夾的帳戶_已登入時不提供裝置碼登入_比照本機預設帳戶()
+    {
+        var existing = new AgentAccount { Provider = AgentProvider.Codex, ConfigDirectory = InHome(".codex-work"), ExistingFolder = true };
+        var isolated = new AgentAccount { Provider = AgentProvider.Codex, ConfigDirectory = InHome("accounts") };
+        CodexDeviceCodeRules.CanUseDeviceCode(isolated, AccountStatus.Ready).Should().BeTrue("對照：app 建的隔離帳戶隨時可以");
+        CodexDeviceCodeRules.CanUseDeviceCode(existing, AccountStatus.Ready).Should().BeFalse("那份登入他在終端機也在用，重新登入會撤銷它");
+        CodexDeviceCodeRules.CanUseDeviceCode(existing, AccountStatus.NotLoggedIn).Should().BeTrue("本來就沒登入的可以");
+        CodexDeviceCodeRules.Refusal(existing, AccountStatus.Ready).Should().Contain("原有的設定資料夾");
+        CodexDeviceCodeRules.Refusal(existing, AccountStatus.NotLoggedIn).Should().BeNull();
+        var grok = new AgentAccount { Provider = AgentProvider.Grok, ConfigDirectory = InHome(".grok-work"), ExistingFolder = true };
+        CodexDeviceCodeRules.CanUseDeviceCode(grok, AccountStatus.Ready).Should().BeFalse();
+        CodexDeviceCodeRules.Refusal(grok, AccountStatus.Ready).Should().Contain("原有的設定資料夾");
     }
 
     [Fact]

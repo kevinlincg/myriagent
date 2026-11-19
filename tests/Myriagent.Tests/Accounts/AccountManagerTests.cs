@@ -145,6 +145,16 @@ public sealed class AccountManagerTests : IDisposable
         empty.Should().Throw<InvalidOperationException>().WithMessage("請輸入設定資料夾的路徑");
         var agy = () => manager.AddExisting(AgentProvider.Antigravity, null, null, folder);
         agy.Should().Throw<InvalidOperationException>().WithMessage("*一台電腦只有一個登入*");
+        var appData = () => manager.AddExisting(AgentProvider.Codex, null, null, AppPaths.Root);
+        appData.Should().Throw<InvalidOperationException>().WithMessage("這個資料夾不能當成 Codex 的設定資料夾*", "app 自己的資料夾");
+        var unrelated = temp.CreateDirectory("Documents");
+        temp.WriteFile(Path.Combine("Documents", "報告.txt"));
+        var notConfig = () => manager.AddExisting(AgentProvider.Codex, null, null, unrelated);
+        notConfig.Should().Throw<InvalidOperationException>().WithMessage("這個資料夾看起來不是 Codex 的設定資料夾*", "路徑打錯時不要把 CLI 的東西寫進不相干的資料夾");
+        var claudeFolder = temp.CreateDirectory(".claude-work");
+        temp.WriteFile(Path.Combine(".claude-work", ".claude.json"), "{}");
+        var otherCli = () => manager.AddExisting(AgentProvider.Codex, null, null, claudeFolder);
+        otherCli.Should().Throw<InvalidOperationException>().WithMessage("這個資料夾看起來不是 Codex 的設定資料夾*", "別種 CLI 用的資料夾");
         var managed = () => manager.AddExisting(AgentProvider.Codex, null, null, codex.ConfigDirectory!);
         Directory.CreateDirectory(codex.ConfigDirectory!);
         managed.Should().Throw<InvalidOperationException>().WithMessage("已經有帳戶在用這個資料夾*", "app 自己建的隔離帳戶的資料夾也算在用");
@@ -154,6 +164,30 @@ public sealed class AccountManagerTests : IDisposable
         manager.Remove(added.Id, deleteData: true).Should().BeTrue();
         manager.Find(added.Id).Should().BeNull();
         File.Exists(auth).Should().BeTrue("使用者原有的資料夾絕不刪，勾了刪除資料也一樣");
+
+        // 空的資料夾可以當成新的設定資料夾（之後在帳戶卡登入）
+        var fresh = temp.CreateDirectory(".codex-new");
+        var blank = manager.AddExisting(AgentProvider.Codex, "新的", null, fresh);
+        blank.ConfigDirectory.Should().Be(fresh);
+        blank.Label.Should().Be("新的");
+        Directory.EnumerateFileSystemEntries(fresh).Should().BeEmpty("加入時不在裡面放任何東西");
+    }
+
+    [Fact]
+    public void 現有的資料夾_路徑長得像app建的也不刪_也不放隔離帳戶的預設設定()
+    {
+        // 對照：app 建的隔離帳戶（accounts\{Id}\codex）移除時可以刪
+        var shaped = new AgentAccount { Id = "e1", Provider = AgentProvider.Codex, ConfigDirectory = Path.Combine(AppPaths.AccountsDirectory, "e1", "codex") };
+        AccountManager.GetDeletableAccountRoot(shaped).Should().Be(Path.Combine(AppPaths.AccountsDirectory, "e1"));
+        shaped.ExistingFolder = true;
+        AccountManager.GetDeletableAccountRoot(shaped).Should().BeNull("使用者原有的資料夾絕不刪，不管它在哪裡");
+
+        var own = temp.CreateDirectory(".grok-work");
+        AccountManager.PrepareIsolatedFolder(new AgentAccount { Provider = AgentProvider.Grok, ConfigDirectory = own, ExistingFolder = true });
+        Directory.EnumerateFileSystemEntries(own).Should().BeEmpty("使用者自己的資料夾不放 config.toml");
+        var created = temp.Combine("grok-managed");
+        AccountManager.PrepareIsolatedFolder(new AgentAccount { Provider = AgentProvider.Grok, ConfigDirectory = created });
+        File.Exists(Path.Combine(created, "config.toml")).Should().BeTrue("對照：app 建的隔離帳戶會放");
     }
 
     [Fact]

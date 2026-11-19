@@ -16,6 +16,8 @@ concurrency:
 jobs:
   mac-app:
     name: macOS app
+    # mac/mutation-* 是驗證測試用的分支（故意改壞一處，看 Windows 上的測試會不會紅）：不必建 macOS 版
+    if: ${{ !startsWith(github.ref_name, 'mac/mutation') }}
     runs-on: macos-26
     steps:
       - uses: actions/checkout@v4
