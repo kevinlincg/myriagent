@@ -84,6 +84,8 @@ internal sealed class AppController : IAgentHost, IAppUpdateShell, IWindowHost, 
         // 帳戶初始化的 await 要回到主執行緒（中樞與帳戶狀態只在主執行緒讀寫）
         if (SynchronizationContext.Current == null)
             SynchronizationContext.SetSynchronizationContext(new MainThreadSynchronizationContext());
+        // Claude 的登入憑證在 macOS 的鑰匙圈（不是 .credentials.json）：建立帳戶管理之前接上
+        MacClaudeKeychain.Install();
         Settings = AppSettings.Load();
         http = new HttpClient(new SocketsHttpHandler
         {

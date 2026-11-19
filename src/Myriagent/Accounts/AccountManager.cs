@@ -1642,7 +1642,8 @@ internal sealed class AccountManager : IDisposable
         }
         catch (Exception ex) when (ex is FileNotFoundException or DirectoryNotFoundException)
         {
-            return ClaudeCredentialInfo.Missing;
+            // 沒有憑證檔：macOS 的憑證在鑰匙圈（沒有檔案的修改時間，內容有沒有變看大小與 expiresAt）；Windows 沒有另一個來源，照舊是 Missing
+            return ClaudeCredentialStore.ReadFallback(file) is { } json ? new ClaudeCredentialInfo(true, json.Length, default, json) : ClaudeCredentialInfo.Missing;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {

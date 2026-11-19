@@ -79,7 +79,8 @@ internal sealed class ClaudeUsageClient
         }
         catch (Exception ex) when (ex is FileNotFoundException or DirectoryNotFoundException)
         {
-            return null;
+            // 沒有憑證檔：macOS 的憑證在鑰匙圈（Windows 沒有另一個來源，照舊回 null）
+            return Accounts.ClaudeCredentialStore.ReadFallback(path);
         }
     }
 

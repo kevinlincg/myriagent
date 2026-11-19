@@ -97,6 +97,20 @@ jobs:
             screen-*.png
             app-stdout.log
             sample.txt
+      # 建好的 app 打包成 zip（ditto 會保留符號連結與執行權限）給人下載試用
+      - name: Package app
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP=$(find src/Myriagent.Mac/bin/Release -maxdepth 4 -name '*.app' | head -1)
+          ARCH=$(basename "$(dirname "$APP")")
+          ditto -c -k --keepParent "$APP" "Clode-Myriagent-$ARCH.zip"
+          ls -la Clode-Myriagent-*.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mac-app
+          path: Clode-Myriagent-*.zip
+          compression-level: 0
       - name: Error summary
         if: failure()
         shell: bash
