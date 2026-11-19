@@ -197,7 +197,7 @@ public sealed class AccountManagerTests : IDisposable
         var builtIn = ExistingFolderRules.BuiltInDirectory(AgentProvider.Claude, home);
         var resolved = AccountRules.ResolveConfigDirectory(new AgentAccount { Provider = AgentProvider.Claude });
 
-        ExistingFolderRules.Check(AgentProvider.Claude, builtIn, _ => true, new[] { builtIn, resolved }, Array.Empty<string>())
+        ExistingFolderRules.Check(AgentProvider.Claude, builtIn, _ => true, new[] { builtIn, resolved }, Array.Empty<string>(), Array.Empty<string>(), _ => true)
             .Should().Be(ExistingFolderCheck.IsDefault);
         // 清單裡的本機預設帳戶（c1）用的就是這次啟動的預設資料夾：存在的話一定加不進去（是預設的、也是已經在用的）
         if (Directory.Exists(resolved))
