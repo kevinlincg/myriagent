@@ -104,6 +104,9 @@ jobs:
           set -euo pipefail
           APP=$(find src/Myriagent.Mac/bin/Release -maxdepth 4 -name '*.app' | head -1)
           ARCH=$(basename "$(dirname "$APP")")
+          # 臨時簽章（不需要開發者帳號）：沒有任何簽章的 app 要不到系統通知的權限，在 Apple 晶片的 Mac 上也不能執行
+          codesign --force --deep --sign - "$APP"
+          codesign --verify --deep --strict "$APP"
           ditto -c -k --keepParent "$APP" "Clode-Myriagent-$ARCH.zip"
           ls -la Clode-Myriagent-*.zip
       - uses: actions/upload-artifact@v4

@@ -56,7 +56,9 @@ internal sealed class VoiceAnnouncer : IDisposable
             {
                 // 工作執行緒到 Dispose（或引擎建不起來）才結束；SAPI 的 SpVoice 兩種 apartment 都能用，MTA 不需要訊息迴圈
                 worker = new Thread(Run) { IsBackground = true, Name = "語音通知" };
-                worker.SetApartmentState(ApartmentState.MTA);
+                // COM 的執行緒模式只有 Windows 有（其他系統設定會丟 PlatformNotSupportedException）
+                if (OperatingSystem.IsWindows())
+                    worker.SetApartmentState(ApartmentState.MTA);
                 worker.Start();
             }
             else

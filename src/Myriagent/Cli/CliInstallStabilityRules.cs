@@ -289,6 +289,8 @@ internal static partial class CliInstallStabilityRules
     /// </summary>
     internal static bool IsRunningVersionLock(ClaudeInstallLock installLock)
     {
+        if (IsProcessLockName(installLock.Name))
+            return true;
         if (installLock.IsDirectory || string.IsNullOrEmpty(installLock.ExecutablePath))
             return false;
         var locked = installLock.Name.EndsWith(".lock", StringComparison.OrdinalIgnoreCase) ? installLock.Name[..^".lock".Length] : installLock.Name;
@@ -298,6 +300,16 @@ internal static partial class CliInstallStabilityRules
         var running = installLock.ExecutablePath.TrimEnd('\\', '/');
         int separator = running.LastIndexOfAny(['\\', '/']);
         return locked.Length > 0 && string.Equals(running[(separator + 1)..], locked, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>鎖的檔名是「版本#PID.lock」（含寫入時的暫存檔「版本#PID.lock.tmp.…」）：執行中的 Claude 鎖自己那一版用的名字，安裝不會用</summary>
+    internal static bool IsProcessLockName(string? name)
+    {
+        if (string.IsNullOrEmpty(name))
+            return false;
+        int mark = name.IndexOf('#');
+        int lockAt = name.IndexOf(".lock", StringComparison.OrdinalIgnoreCase);
+        return mark > 0 && lockAt > mark + 1 && name.AsSpan(mark + 1, lockAt - mark - 1).IndexOfAnyExceptInRange('0', '9') < 0;
     }
 
     /// <summary>
@@ -618,6 +630,9 @@ internal static partial class CliInstallStabilityRules
                 return new CliWatchEvent(mark?.ProcessId, description);
             }
             case CliWatchArea.ClaudeLocks:
+                // 「版本#PID.lock」是執行中的 Claude 鎖自己那一版用的（同版本的第二個以後的程序，見 IsRunningVersionLock），不是安裝
+                if (IsProcessLockName(name) || IsProcessLockName(oldName))
+                    return null;
                 return EndsWithLock(name) || EndsWithLock(oldName) ? new CliWatchEvent(null, description) : null;
             case CliWatchArea.NpmPackages:
                 return IsPackageEntry(target.Name, name) || IsPackageEntry(target.Name, oldName) ? new CliWatchEvent(null, description) : null;

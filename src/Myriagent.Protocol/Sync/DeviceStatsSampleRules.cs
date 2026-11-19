@@ -49,6 +49,17 @@ internal static class DeviceStatsSampleRules
         return LabelRules.Clean(name, DeviceStatsRules.MaxDiskNameLength) is { } clean && clean == name ? clean : null;
     }
 
+    /// <summary>macOS／Linux 的磁碟名稱（卷標，例如 Macintosh HD）：清理，太長的截到上限（尾端加「…」）；清理後是空的回 null</summary>
+    public static string? UnixDiskName(string? label)
+    {
+        if (LabelRules.Clean(label, int.MaxValue) is not { } clean)
+            return null;
+        if (clean.Length <= DeviceStatsRules.MaxDiskNameLength)
+            return clean;
+        // 截斷後再清一次：切在成對的代理字元中間時把落單的那半去掉
+        return LabelRules.Clean(clean[..(DeviceStatsRules.MaxDiskNameLength - 1)], DeviceStatsRules.MaxDiskNameLength - 1) is { } cut ? cut + "…" : null;
+    }
+
     /// <summary>CPU 名稱：去掉多餘空白（登錄的值常有連續空白與尾端空白），清理、截斷；空的回 null</summary>
     public static string? CpuName(string? raw) => DisplayName(raw, DeviceStatsRules.MaxCpuNameLength);
 

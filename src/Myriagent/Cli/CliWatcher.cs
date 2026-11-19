@@ -118,6 +118,9 @@ internal sealed class CliWatcher : IDisposable
     private readonly CliInstallInspector inspector;
     private readonly Dictionary<AgentProvider, ProviderState> states = new();
     private readonly Queue<CliWatchSignal> pending = new();
+
+    /// <summary>看過的「執行中的 Claude 鎖自己那一版」的鎖檔（完整路徑）：它被刪掉時不當成安裝的事件（事件在 watcher 的執行緒來，所以用併行集合）</summary>
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, bool> runningLocks = new(StringComparer.OrdinalIgnoreCase);
     private System.Threading.Timer? pollTimer;
     private int draining;
     private int polling;
@@ -359,11 +362,28 @@ internal sealed class CliWatcher : IDisposable
         if (CliInstallStabilityRules.ClassifyEvent(target.Target, e.ChangeType, e.Name, oldName) is not { } ev)
             return;
         var pid = ev.UpdaterProcessId;
-        // 版本鎖的 PID 在 JSON 裡：建立或改寫時讀一下（小檔，FileShare.ReadWrite|Delete）
-        if (pid == null && target.Target.Area == CliWatchArea.ClaudeLocks && e.ChangeType != WatcherChangeTypes.Deleted && e.Name != null)
+        if (target.Target.Area == CliWatchArea.ClaudeLocks && e.Name != null)
         {
-            var json = CliBinaryIdentityRules.ReadSharedText(Path.Combine(target.Target.Directory, e.Name), 64 * 1024);
-            pid = CliInstallStabilityRules.ParseLock(e.Name, false, json, DateTime.UtcNow).ProcessId;
+            var path = Path.Combine(target.Target.Directory, e.Name);
+            if (e.ChangeType == WatcherChangeTypes.Deleted)
+            {
+                // 執行中的 Claude 結束時放開自己那一版的鎖：不是安裝結束
+                if (runningLocks.TryRemove(path, out _))
+                    return;
+            }
+            else
+            {
+                // 版本鎖的 PID 在 JSON 裡：建立或改寫時讀一下（小檔，FileShare.ReadWrite|Delete）
+                var json = CliBinaryIdentityRules.ReadSharedText(path, 64 * 1024);
+                var installLock = CliInstallStabilityRules.ParseLock(e.Name, false, json, DateTime.UtcNow);
+                // 執行中的 Claude 鎖自己那一版（macOS／Linux，見 IsRunningVersionLock）：不是安裝，記下來，它結束時刪鎖也不算
+                if (CliInstallStabilityRules.IsRunningVersionLock(installLock))
+                {
+                    runningLocks[path] = true;
+                    return;
+                }
+                pid ??= installLock.ProcessId;
+            }
         }
         RecordActivity(state, CliWatchTrigger.FileEvent, pid, ev.Description);
     }

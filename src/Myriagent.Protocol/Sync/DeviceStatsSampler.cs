@@ -158,6 +158,8 @@ internal sealed class DeviceStatsSampler(
     /// <summary>固定磁碟（最多 <see cref="DeviceStatsRules.MaxDisks"/> 個）；讀不到的略過</summary>
     public static List<DiskStats> ReadDisks(Action<string>? warn = null)
     {
+        if (!OperatingSystem.IsWindows())
+            return ReadUnixDisks();
         var disks = new List<DiskStats>();
         try
         {
@@ -184,6 +186,63 @@ internal sealed class DeviceStatsSampler(
         {
             warn?.Invoke($"讀不到磁碟清單：{ex.Message}");
         }
+        return disks;
+    }
+
+    /// <summary>/Volumes 底下比這個小的不列（多半是安裝程式的磁碟映像檔）</summary>
+    private const long MinExtraDiskBytes = 1L << 30;
+
+    /// <summary>
+    /// macOS／Linux 的磁碟：開機磁碟「/」（名稱取 /Volumes 裡指到它的那個捷徑，例如 Macintosh HD；沒有就叫「/」）加上掛在 /Volumes 底下的其他磁碟
+    /// （外接硬碟）。DriveInfo.GetDrives 在 macOS 會列出一堆系統內部的掛載點（Preboot、VM、模擬器的映像檔），所以不用它
+    /// </summary>
+    private static List<DiskStats> ReadUnixDisks()
+    {
+        var disks = new List<DiskStats>();
+        void Add(string mount, string label, long minBytes)
+        {
+            if (disks.Count == DeviceStatsRules.MaxDisks)
+                return;
+            try
+            {
+                var drive = new DriveInfo(mount);
+                var total = drive.TotalSize;
+                if (total <= 0 || total < minBytes || total > DeviceStatsRules.MaxBytes)
+                    return;
+                if (DeviceStatsSampleRules.UnixDiskName(label) is not { } name || disks.Any(d => d.Name == name))
+                    return;
+                disks.Add(new DiskStats(name, Math.Clamp(total - drive.TotalFreeSpace, 0, total), total));
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
+            {
+                // 這個磁碟讀不到（正在卸除）：略過
+            }
+        }
+
+        var rootLabel = "/";
+        var mounts = new List<string>();
+        try
+        {
+            foreach (var entry in new DirectoryInfo("/Volumes").EnumerateFileSystemInfos())
+            {
+                if (entry.LinkTarget is { } target)
+                {
+                    if (target == "/")
+                        rootLabel = entry.Name;
+                }
+                else if (entry is DirectoryInfo)
+                {
+                    mounts.Add(entry.FullName);
+                }
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // 沒有 /Volumes（Linux）或讀不到：只列開機磁碟
+        }
+        Add("/", rootLabel, 0);
+        foreach (var mount in mounts.OrderBy(m => m, StringComparer.Ordinal))
+            Add(mount, Path.GetFileName(mount), MinExtraDiskBytes);
         return disks;
     }
 
