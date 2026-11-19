@@ -47,7 +47,12 @@ internal sealed class SingleInstance : IDisposable
     private readonly string socketPath;
     private readonly object gate = new();
     private Socket? listener;
+    private Thread? listenerThread;
+    private volatile bool stopListening;
     private bool disposed;
+
+    /// <summary>監聽執行緒多久看一次要不要停（微秒）</summary>
+    private const int PollMicroseconds = 200_000;
 
     private SingleInstance(FileStream lockFile, string socketPath)
     {
@@ -239,6 +244,12 @@ internal sealed class SingleInstance : IDisposable
             {
                 while (true)
                 {
+                    // 不直接卡在 Accept：macOS 上另一條執行緒關掉正在 Accept 的 socket 叫不醒它，關的那一方會一直等（app 結束時整個卡住）。
+                    // 先以 Poll 等連線（每 200 毫秒看一次要不要停），有連線才 Accept
+                    if (stopListening)
+                        break;
+                    if (!socket.Poll(PollMicroseconds, SelectMode.SelectRead))
+                        continue;
                     using var client = socket.Accept();
                     client.ReceiveTimeout = 2000;
                     client.SendTimeout = 2000;
@@ -292,6 +303,7 @@ internal sealed class SingleInstance : IDisposable
             }
         })
         { IsBackground = true, Name = "Activate" };
+        listenerThread = thread;
         thread.Start();
     }
 
@@ -324,6 +336,11 @@ internal sealed class SingleInstance : IDisposable
                 return;
             disposed = true;
         }
+        // 先請監聽執行緒停下、等它離開 Poll（最多一秒），再關 socket
+        stopListening = true;
+        var thread = listenerThread;
+        if (thread != null && thread != Thread.CurrentThread)
+            thread.Join(TimeSpan.FromSeconds(1));
         CloseListener();
         lockFile.Dispose();
     }

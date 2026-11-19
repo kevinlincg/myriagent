@@ -71,7 +71,13 @@ internal static class MacSmoke
                 report["loaded"] = true;
                 if (error != null)
                     report["error"] = error;
-                Finish(report);
+                // 連畫面一起存（同一個檔名加 .png）：看得到 macOS 上實際畫出來的樣子
+                window.View.SavePng(file + ".png", snapshotError =>
+                {
+                    if (snapshotError != null)
+                        report["snapshotError"] = snapshotError;
+                    Finish(report);
+                });
             });
         }), TaskScheduler.Default);
         _ = Task.Delay(GiveUp).ContinueWith(_ => app.BeginInvoke(() => Finish(new JObject { ["loaded"] = false, ["error"] = "介面沒有載入" })),

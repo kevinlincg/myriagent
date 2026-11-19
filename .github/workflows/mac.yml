@@ -61,8 +61,7 @@ jobs:
           PID=$!
           for i in $(seq 1 70); do
             if ! kill -0 $PID 2>/dev/null; then break; fi
-            if [ "$i" = "6" ]; then screencapture -x screen-06s.png || true; fi
-            if [ "$i" = "12" ]; then screencapture -x screen-12s.png || true; fi
+            if [ "$i" = "30" ]; then screencapture -x screen-30s.png || true; fi
             sleep 1
           done
           if kill -0 $PID 2>/dev/null; then echo "app still running after 70s: killing" | tee smoke-run.txt; sample $PID 2 -file sample.txt >/dev/null 2>&1; grep -v CallDescrWorkerInternal sample.txt | cut -c1-240 | head -150; kill -9 $PID; fi
@@ -94,6 +93,7 @@ jobs:
           if-no-files-found: ignore
           path: |
             smoke.json
+            smoke.json.png
             screen-*.png
             app-stdout.log
             sample.txt

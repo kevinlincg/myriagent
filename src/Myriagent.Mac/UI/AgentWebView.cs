@@ -169,7 +169,9 @@ internal partial class AgentWebView : IAgentView, IDisposable
         if (disposed || owner.IsClosed)
             return;
         // 以 JSON.parse 還原：直接把 JSON 當成 JavaScript 的物件常值，「__proto__」這種鍵的意思會不一樣
-        var script = "window.chrome.webview.__deliver(JSON.parse(" + JsonConvert.ToString(message.ToString(Formatting.None)) + "))";
+        // 網頁還沒載入（橋還沒注入）時送的訊息直接丟掉，和 WebView2 一樣：網頁載入後送 ready，中樞會把完整的狀態再送一次
+        var script = "window.chrome&&window.chrome.webview&&window.chrome.webview.__deliver&&window.chrome.webview.__deliver(JSON.parse("
+                     + JsonConvert.ToString(message.ToString(Formatting.None)) + "));0";
         Evaluate(script);
     }
 
@@ -183,6 +185,38 @@ internal partial class AgentWebView : IAgentView, IDisposable
         catch (Exception ex)
         {
             done(null, ex.Message);
+        }
+    }
+
+    /// <summary>把網頁目前的畫面存成 PNG（冒煙測試用；不必在螢幕上看得到）；done 的參數是錯誤訊息（成功是 null）</summary>
+    public void SavePng(string path, Action<string?> done)
+    {
+        try
+        {
+            webView.TakeSnapshot(null!, (image, error) =>
+            {
+                try
+                {
+                    if (image == null || error != null)
+                    {
+                        done(error?.LocalizedDescription ?? "沒有拿到畫面");
+                        return;
+                    }
+                    using var tiff = image.AsTiff();
+                    using var bitmap = new NSBitmapImageRep(tiff!);
+                    using var png = bitmap.RepresentationUsingTypeProperties(NSBitmapImageFileType.Png);
+                    File.WriteAllBytes(path, png.ToArray());
+                    done(null);
+                }
+                catch (Exception ex)
+                {
+                    done(ex.Message);
+                }
+            });
+        }
+        catch (Exception ex)
+        {
+            done(ex.Message);
         }
     }
 
@@ -238,7 +272,7 @@ internal partial class AgentWebView : IAgentView, IDisposable
         while (knownFileOrder.Count > MaxKnownFiles)
             knownFiles.Remove(knownFileOrder.Dequeue());
         if (entries.Count > 0)
-            Evaluate("window.chrome.webview.__files(" + entries.ToString(Formatting.None) + ")");
+            Evaluate("window.chrome&&window.chrome.webview&&window.chrome.webview.__files&&window.chrome.webview.__files(" + entries.ToString(Formatting.None) + ");0");
     }
 
     /// <summary>剪貼簿裡有檔案（在 Finder 複製的）而且和上次看的不一樣就登記：之後貼上時網頁才找得到路徑。視窗變成作用中、按貼上之前呼叫</summary>
