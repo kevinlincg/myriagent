@@ -1,0 +1,97 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    macOS 版的桌面 app：和 Windows 版（src/Myriagent）編譯同一批原始碼，只換掉 Windows 專屬的外殼與系統服務。
+    - 共用的檔案以連結的方式編進來（下面的 Compile Include="..\Myriagent\**\*.cs"），不複製；Windows 版改了這裡就跟著改。
+    - Windows 專屬的檔案列在 MacExcluded；它們對外的型別在這個資料夾裡有 macOS 的對應實作（同一個命名空間、同樣的成員）。
+    - 不放進 Myriagent.slnx：Windows 的開發機沒有 macOS workload，整個方案會建置不過；改用根目錄的 Myriagent.Mac.slnx。
+    建置：dotnet workload install macos；dotnet build src/Myriagent.Mac -c Release（要有 Xcode）
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0-macos</TargetFramework>
+    <SupportedOSPlatformVersion>13.0</SupportedOSPlatformVersion>
+    <RootNamespace>Myriagent</RootNamespace>
+    <AssemblyName>Myriagent</AssemblyName>
+    <Product>Clode Myriagent</Product>
+    <Version>0.2.0</Version>
+    <ApplicationId>dev.clode.myriagent</ApplicationId>
+    <ApplicationTitle>Clode Myriagent</ApplicationTitle>
+    <ApplicationVersion>1</ApplicationVersion>
+    <ApplicationDisplayVersion>0.2.0</ApplicationDisplayVersion>
+    <MyriagentStampCommitTime>true</MyriagentStampCommitTime>
+    <StartupObject>Myriagent.Program</StartupObject>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+    <TieredPGO>true</TieredPGO>
+    <!-- 反射用得多（Newtonsoft、SignalR）：不裁剪 -->
+    <LinkMode>None</LinkMode>
+    <!-- workload 要求的 Xcode 小版本和機器上的差一點也能建置；真的不相容時編譯器自己會報錯 -->
+    <ValidateXcodeVersion>false</ValidateXcodeVersion>
+    <DefineConstants>$(DefineConstants);MYRIAGENT_MAC</DefineConstants>
+  </PropertyGroup>
+
+  <!-- 發佈時同時產出 Intel 與 Apple 晶片（一個通用的 .app）；平常建置只建這台的架構 -->
+  <PropertyGroup Condition="'$(MyriagentUniversal)' == 'true'">
+    <RuntimeIdentifiers>osx-x64;osx-arm64</RuntimeIdentifiers>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- macOS SDK 預設的全域 using（AppKit、Foundation、CoreGraphics）拿掉：共用的原始碼有同名的型別，用到的檔案自己寫 using -->
+    <Using Remove="AppKit" />
+    <Using Remove="CoreGraphics" />
+    <Using Remove="Foundation" />
+    <!-- Windows 版因為 UseWindowsForms 隱含這兩個：System.Drawing 的 Color／Point／Rectangle／Size 是跨平台的基本型別；
+         System.Windows.Forms 在這裡只有 Compat/WinFormsCompat.cs 的幾個列舉（共用的規則檔用到） -->
+    <Using Include="System.Drawing" />
+    <Using Include="System.Windows.Forms" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
+    <PackageReference Include="Microsoft.AspNetCore.SignalR.Client" Version="10.0.13" />
+    <PackageReference Include="Microsoft.AspNetCore.SignalR.Protocols.NewtonsoftJson" Version="10.0.13" />
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.12" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Myriagent.Protocol\Myriagent.Protocol.csproj" />
+  </ItemGroup>
+
+  <!-- Windows 專屬、macOS 另有實作或不適用的檔案（路徑相對於 src/Myriagent） -->
+  <ItemGroup>
+    <MacExcluded Include="..\Myriagent\Program.cs" />
+    <MacExcluded Include="..\Myriagent\UI\AgentWebView.cs" />
+    <MacExcluded Include="..\Myriagent\UI\AppController.cs" />
+    <MacExcluded Include="..\Myriagent\UI\AppIcons.cs" />
+    <MacExcluded Include="..\Myriagent\UI\AutoStartRegistration.cs" />
+    <MacExcluded Include="..\Myriagent\UI\MainForm.cs" />
+    <MacExcluded Include="..\Myriagent\UI\NativeMethods.cs" />
+    <MacExcluded Include="..\Myriagent\UI\PopoutForm.cs" />
+    <MacExcluded Include="..\Myriagent\UI\ProbeRunner.cs" />
+    <MacExcluded Include="..\Myriagent\UI\RemoteDeskBanner.cs" />
+    <MacExcluded Include="..\Myriagent\UI\RemoteExecConfirmer.cs" />
+    <MacExcluded Include="..\Myriagent\UI\ScreenPresence.cs" />
+    <MacExcluded Include="..\Myriagent\UI\SingleInstance.cs" />
+    <MacExcluded Include="..\Myriagent\UI\TaskbarProgress.cs" />
+    <MacExcluded Include="..\Myriagent\UI\TrayIconBadge.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\Myriagent\**\*.cs" Exclude="..\Myriagent\bin\**;..\Myriagent\obj\**;@(MacExcluded)" LinkBase="Shared" />
+    <!-- 對話裡的代理用的兩個小工具（Windows 是獨立的 exe）：編進同一個執行檔，以 Myriagent tool-remote／tool-schedule 執行（Program.cs） -->
+    <Compile Include="..\MyriagentRemote\Program.cs" Link="Tools\MyriagentRemote.cs" />
+    <Compile Include="..\MyriagentSchedule\Program.cs" Link="Tools\MyriagentSchedule.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- 介面網頁：和 Windows 版同一份（邏輯名稱 Web/檔名，見 UI/WebAssets.cs） -->
+    <EmbeddedResource Include="..\Myriagent\Web\**\*" Link="Web\%(Filename)%(Extension)">
+      <LogicalName>Web/%(Filename)%(Extension)</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="..\Myriagent\app.ico" Link="app.ico">
+      <LogicalName>app.ico</LogicalName>
+    </EmbeddedResource>
+    <InternalsVisibleTo Include="Myriagent.Mac.Tests" />
+  </ItemGroup>
+
+</Project>

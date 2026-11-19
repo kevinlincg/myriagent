@@ -12,7 +12,12 @@
        沒有 git 或不是 repo（git archive 的基準建置）時不寫，介面就不顯示時間。同一個提交的時間固定，換提交才重新產生 AssemblyInfo。
        Exec 經批次檔執行：格式的 % 要寫兩次（%25%25 → %%） -->
   <Target Name="MyriagentStampCommitTime" BeforeTargets="GetAssemblyAttributes" Condition="'$(MyriagentStampCommitTime)' == 'true' and '$(DesignTimeBuild)' != 'true'">
-    <Exec Condition="'$(MyriagentCommitTime)' == ''" Command="git -C &quot;$(MSBuildProjectDirectory)&quot; log -1 --format=%25%25cI HEAD 2&gt;nul"
+    <Exec Condition="'$(MyriagentCommitTime)' == '' and '$(OS)' == 'Windows_NT'" Command="git -C &quot;$(MSBuildProjectDirectory)&quot; log -1 --format=%25%25cI HEAD 2&gt;nul"
+          ConsoleToMSBuild="true" IgnoreExitCode="true" EchoOff="true" StandardOutputImportance="low" StandardErrorImportance="low">
+      <Output TaskParameter="ConsoleOutput" PropertyName="MyriagentCommitTime" />
+    </Exec>
+    <!-- macOS、Linux（Exec 經 /bin/sh 執行）：% 不用寫兩次，丟掉錯誤輸出的寫法也不同 -->
+    <Exec Condition="'$(MyriagentCommitTime)' == '' and '$(OS)' != 'Windows_NT'" Command="git -C &quot;$(MSBuildProjectDirectory)&quot; log -1 --format=%25cI HEAD 2&gt;/dev/null"
           ConsoleToMSBuild="true" IgnoreExitCode="true" EchoOff="true" StandardOutputImportance="low" StandardErrorImportance="low">
       <Output TaskParameter="ConsoleOutput" PropertyName="MyriagentCommitTime" />
     </Exec>

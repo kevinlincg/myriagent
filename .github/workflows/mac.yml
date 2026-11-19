@@ -1,0 +1,65 @@
+# macOS 版的建置（src/Myriagent.Mac）與 Windows 版的編譯檢查。
+# macOS 版和 Windows 版編譯同一批原始碼：改到共用的檔案時，兩邊都要編得過。
+name: mac
+
+on:
+  push:
+    branches: [mac-port, "mac/**"]
+  pull_request:
+    paths: ["src/**", "tests/**", "Directory.Build.*", ".github/workflows/mac.yml"]
+  workflow_dispatch:
+
+concurrency:
+  group: mac-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  mac-app:
+    name: macOS app
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - name: Environment
+        run: |
+          sw_vers
+          xcodebuild -version
+          ls /Applications | grep -i xcode || true
+          dotnet --info | head -20
+      - name: Install macOS workload
+        run: dotnet workload install macos
+      - name: Build
+        run: dotnet build src/Myriagent.Mac/Myriagent.Mac.csproj -c Release -nologo -clp:NoSummary 2>&1 | tee build.log
+      - name: Error summary
+        if: failure()
+        run: |
+          grep -E ': error ' build.log | sed -E 's/ \[[^]]*\]$//' | sort -u > errors.txt || true
+          wc -l errors.txt
+          echo "--- by code ---"
+          grep -oE 'error [A-Z]+[0-9]+' errors.txt | sort | uniq -c | sort -rn | head -40
+          echo "--- by file ---"
+          sed -E 's/\([0-9,]+\).*//' errors.txt | sort | uniq -c | sort -rn | head -150
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: mac-build-log
+          path: |
+            build.log
+            errors.txt
+
+  windows-build:
+    name: Windows build
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - name: Build
+        run: dotnet build Myriagent.slnx -c Release -nologo

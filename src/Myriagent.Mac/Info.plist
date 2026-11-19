@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleName</key>
+	<string>Clode Myriagent</string>
+	<key>CFBundleDisplayName</key>
+	<string>Clode Myriagent</string>
+	<key>CFBundleIdentifier</key>
+	<string>dev.clode.myriagent</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>zh_TW</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>13.0</string>
+	<key>LSApplicationCategoryType</key>
+	<string>public.app-category.developer-tools</string>
+	<key>NSHighResolutionCapable</key>
+	<true/>
+	<key>NSPrincipalClass</key>
+	<string>NSApplication</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>輸入區的語音訊息要用麥克風錄音。</string>
+	<key>NSAppleEventsUsageDescription</key>
+	<string>在 Finder 顯示檔案、開啟檔案與連結。</string>
+	<key>NSHumanReadableCopyright</key>
+	<string>Clode Myriagent</string>
+</dict>
+</plist>
