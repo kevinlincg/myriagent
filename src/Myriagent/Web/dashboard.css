@@ -252,6 +252,10 @@ button.cc-conv:hover { background: color-mix(in srgb, var(--tone-auto) 12%, tran
 .add-preview { display: inline-flex; align-items: center; gap: 6px; color: var(--text-hi); }
 .add-preview::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--acc); }
 .form-note { margin: 0; font-size: 12px; line-height: 1.65; color: var(--text-2); }
+/* 新增帳戶：這台電腦上找到的現有設定資料夾（點了填進上面的欄位） */
+.add-folders { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 6px; }
+.add-folders:empty { display: none; }
+.add-folders .field-hint { margin-top: 0; }
 .provs { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
 /* 三種 CLI 並排：標誌在上、文字在下，窄欄也不會擠成好幾行 */
 .prov {

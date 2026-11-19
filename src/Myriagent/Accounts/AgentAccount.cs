@@ -44,6 +44,13 @@ internal sealed class AgentAccount
     /// </summary>
     public bool ShareCustomizations { get; set; } = true;
 
+    /// <summary>
+    /// 這個帳戶用的是使用者自己原有的設定資料夾（AccountManager.AddExisting；例如終端機以 CLAUDE_CONFIG_DIR 指定的 ~/.claude-work），不是 app 建立的：
+    /// 登入、Skills、外掛、記憶、CLI 對話紀錄都是它原本的，和在終端機用同一份。app 不在裡面放隔離帳戶的預設設定、不共用預設帳戶的設定
+    /// （共用會把資料夾裡的 skills 搬走換成連結）、移除帳戶時也不刪。舊版 accounts.json 沒有這個欄位時讀成 false，舊版 app 讀到會忽略（只做加法）
+    /// </summary>
+    public bool ExistingFolder { get; set; }
+
     public int Order { get; set; }
 
     /// <summary>上次查到的 email 與方案（狀態還在檢查時先顯示）</summary>

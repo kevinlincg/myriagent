@@ -10,14 +10,18 @@ internal sealed partial class AgentHub
 {
     /// <summary>
     /// accountAdd（web-protocol）：帶了 logicalAccountId（不是 JSON null）就是「在這台登入」帳戶目錄的邏輯帳戶——名稱、顏色、預期信箱一律取自目錄
-    /// （網頁的 provider、label、color 不看），檢查不過只對送指令的視窗提示，絕不落回一般新增；其他情況照舊新增
+    /// （網頁的 provider、label、color 不看），檢查不過只對送指令的視窗提示，絕不落回一般新增；其他情況照舊新增。
+    /// 帶了 directory（非空白字串）是「使用現有的設定資料夾」：把那個資料夾加成帳戶（AccountManager.AddExisting），不建立新資料夾、不開始登入
     /// </summary>
     private void AccountAddCommand(IAgentView view, JObject msg)
     {
         var claimed = msg["logicalAccountId"];
         if (claimed is null || claimed.Type == JTokenType.Null)
         {
-            AccountAdd(msg.Value<string>("provider"), msg.Value<string>("label"), msg.Value<string>("color"));
+            if (msg["directory"] is { Type: JTokenType.String } directory && !string.IsNullOrWhiteSpace((string?)directory))
+                AccountAddExisting(view, msg.Value<string>("provider"), msg.Value<string>("label"), msg.Value<string>("color"), (string)directory!);
+            else
+                AccountAdd(msg.Value<string>("provider"), msg.Value<string>("label"), msg.Value<string>("color"));
             return;
         }
 

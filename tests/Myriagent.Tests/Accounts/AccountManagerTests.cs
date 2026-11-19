@@ -108,6 +108,87 @@ public sealed class AccountManagerTests : IDisposable
     }
 
     [Fact]
+    public void AddExisting_直接用現有的資料夾_不共用也不能再打開_移除時不刪資料夾()
+    {
+        var folder = temp.CreateDirectory(".codex-work");
+        var auth = temp.WriteFile(Path.Combine(".codex-work", "auth.json"), "{}");
+        changed = 0;
+
+        var added = manager.AddExisting(AgentProvider.Codex, "  ", "#19c3a6", "  \"" + folder + Path.DirectorySeparatorChar + "\"  ");
+
+        added.ConfigDirectory.Should().Be(folder, "照使用者的資料夾，不建立新的");
+        added.ExistingFolder.Should().BeTrue();
+        added.IsSystemDefault.Should().BeFalse();
+        added.ShareCustomizations.Should().BeFalse("使用者原有的資料夾不共用預設帳戶的設定");
+        added.Label.Should().Be("Codex work", "名稱留空時照資料夾名稱取");
+        added.Color.Should().Be("#19C3A6");
+        changed.Should().BeGreaterThan(0);
+        manager.Accounts.Should().Contain(added);
+        SharedCustomizationRules.IsActive(added).Should().BeFalse();
+        AccountRules.ResolveConfigDirectory(added).Should().Be(folder);
+        var saved = JsonFile.Read<List<AgentAccount>>(AppPaths.AccountsFile)!.Single(a => a.Id == added.Id);
+        saved.ExistingFolder.Should().BeTrue();
+        saved.ShareCustomizations.Should().BeFalse();
+        saved.ConfigDirectory.Should().Be(folder);
+        Directory.Exists(Path.Combine(AppPaths.AccountsDirectory, added.Id)).Should().BeFalse("不在 app 的資料夾裡另外建一份");
+
+        manager.Update(added.Id, null, null, null, shareCustomizations: true);
+        added.ShareCustomizations.Should().BeFalse("現有的資料夾不能打開共用");
+
+        var again = () => manager.AddExisting(AgentProvider.Codex, null, null, folder);
+        again.Should().Throw<InvalidOperationException>().WithMessage("已經有帳戶在用這個資料夾*");
+        var missing = () => manager.AddExisting(AgentProvider.Codex, null, null, temp.Combine("沒有這個資料夾"));
+        missing.Should().Throw<InvalidOperationException>().WithMessage("找不到這個資料夾*");
+        var relative = () => manager.AddExisting(AgentProvider.Codex, null, null, ".codex-work");
+        relative.Should().Throw<InvalidOperationException>().WithMessage("請輸入完整的路徑*");
+        var empty = () => manager.AddExisting(AgentProvider.Codex, null, null, "  ");
+        empty.Should().Throw<InvalidOperationException>().WithMessage("請輸入設定資料夾的路徑");
+        var agy = () => manager.AddExisting(AgentProvider.Antigravity, null, null, folder);
+        agy.Should().Throw<InvalidOperationException>().WithMessage("*一台電腦只有一個登入*");
+        var managed = () => manager.AddExisting(AgentProvider.Codex, null, null, codex.ConfigDirectory!);
+        Directory.CreateDirectory(codex.ConfigDirectory!);
+        managed.Should().Throw<InvalidOperationException>().WithMessage("已經有帳戶在用這個資料夾*", "app 自己建的隔離帳戶的資料夾也算在用");
+        manager.Accounts.Count(a => a.ExistingFolder).Should().Be(1, "檢查不過的都沒有加入");
+
+        AccountManager.GetDeletableAccountRoot(added).Should().BeNull();
+        manager.Remove(added.Id, deleteData: true).Should().BeTrue();
+        manager.Find(added.Id).Should().BeNull();
+        File.Exists(auth).Should().BeTrue("使用者原有的資料夾絕不刪，勾了刪除資料也一樣");
+    }
+
+    [Fact]
+    public void AddExisting_預設帳戶的資料夾不能再加一次()
+    {
+        var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        var builtIn = ExistingFolderRules.BuiltInDirectory(AgentProvider.Claude, home);
+        var resolved = AccountRules.ResolveConfigDirectory(new AgentAccount { Provider = AgentProvider.Claude });
+
+        ExistingFolderRules.Check(AgentProvider.Claude, builtIn, _ => true, new[] { builtIn, resolved }, Array.Empty<string>())
+            .Should().Be(ExistingFolderCheck.IsDefault);
+        // 清單裡的本機預設帳戶（c1）用的就是這次啟動的預設資料夾：存在的話一定加不進去（是預設的、也是已經在用的）
+        if (Directory.Exists(resolved))
+        {
+            var add = () => manager.AddExisting(AgentProvider.Claude, null, null, resolved);
+            add.Should().Throw<InvalidOperationException>().WithMessage("*預設的設定資料夾*");
+        }
+        manager.Accounts.Should().NotContain(a => a.ExistingFolder);
+    }
+
+    [Fact]
+    public void FindExistingFolders_沒有隔離帳戶的CLI一律沒有_其他的不會列出已經在用的()
+    {
+        manager.FindExistingFolders(AgentProvider.Antigravity).Should().BeEmpty();
+        // 讀的是這台真的使用者資料夾：只確認不丟例外、不會列出預設帳戶與已加入帳戶的資料夾
+        foreach (var provider in new[] { AgentProvider.Claude, AgentProvider.Codex, AgentProvider.Grok })
+        {
+            var found = manager.FindExistingFolders(provider);
+            var taken = manager.Accounts.Where(a => a.Provider == provider).Select(AccountRules.ResolveConfigDirectory).ToList();
+            found.Should().NotContain(dir => taken.Any(t => ExistingFolderRules.SameFolder(t, dir)));
+            found.All(dir => ExistingFolderRules.IsCandidateName(provider, Path.GetFileName(dir))).Should().BeTrue();
+        }
+    }
+
+    [Fact]
     public void Reorder_照指定順序_沒列到的接在後面_不認得的略過()
     {
         manager.Reorder(new[] { "x1", "不存在" });

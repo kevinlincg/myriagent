@@ -2537,6 +2537,24 @@ internal sealed partial class AgentHub : IDisposable, ICliUpdateParticipant
         }
     }
 
+    /// <summary>
+    /// 「使用現有的設定資料夾」：成功與失敗都由宿主提示送指令的視窗（資料夾不存在、已經有帳戶在用…網頁事先不知道）
+    /// </summary>
+    private void AccountAddExisting(IAgentView view, string? providerText, string? label, string? color, string directory)
+    {
+        if (ParseProvider(providerText) is not { } provider)
+            return;
+        try
+        {
+            var account = accounts.AddExisting(provider, label, color, directory);
+            Toast($"已加入「{account.Label}」，使用 {account.ConfigDirectory}", view: view, level: "success");
+        }
+        catch (InvalidOperationException ex)
+        {
+            Toast(ex.Message, isError: true, view: view);
+        }
+    }
+
     private void AccountRemove(string? accountId, bool deleteData)
     {
         var account = accounts.Find(accountId);

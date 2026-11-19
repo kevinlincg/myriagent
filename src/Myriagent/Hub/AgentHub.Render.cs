@@ -671,6 +671,8 @@ internal sealed partial class AgentHub
                 ["label"] = account.Label,
                 ["color"] = account.Color,
                 ["isSystemDefault"] = account.IsSystemDefault,
+                // 使用者原有的設定資料夾（AccountManager.AddExisting）：帳戶卡標示、不能共用預設帳戶的設定、移除時不刪資料夾
+                ["existingFolder"] = account.ExistingFolder,
                 ["configDirectory"] = AccountRules.ResolveConfigDirectory(account),
                 ["email"] = account.Email,
                 ["plan"] = account.Plan,
@@ -678,7 +680,7 @@ internal sealed partial class AgentHub
                 ["statusText"] = state.StatusText,
                 ["safeMode"] = account.SafeMode && AccountRules.SupportsSafeMode(account.Provider),
                 // 隔離帳戶共用系統預設帳戶的設定（帳戶選單的勾選；系統預設帳戶本身就是來源，一律 false）
-                ["shareCustomizations"] = account.ShareCustomizations && !account.IsSystemDefault && AccountRules.SupportsSharedCustomizations(account.Provider),
+                ["shareCustomizations"] = account.ShareCustomizations && !account.IsSystemDefault && !account.ExistingFolder && AccountRules.SupportsSharedCustomizations(account.Provider),
                 ["loginBusy"] = state.LoginBusy,
                 ["resetCreditBusy"] = accounts.IsResetCreditBusy(account.Id),   // Codex 的「使用重置」進行中
                 ["deviceCodeLogin"] = CodexDeviceCodeRules.CanUseDeviceCode(account, state.Status) && !state.LoginBusy,   // 〔帳戶目錄〕帳戶選單的「用裝置碼登入」
@@ -706,16 +708,27 @@ internal sealed partial class AgentHub
         return result;
     }
 
-    /// <summary>支援的 CLI 與各自能做的事（網頁依此決定新增帳戶的選項、精簡模式、CLI 卡；順序＝AgentProviders.All）</summary>
-    private static JArray RenderProviders()
-        => new(AgentProviders.All.Select(p => new JObject
+    /// <summary>
+    /// 支援的 CLI 與各自能做的事（網頁依此決定新增帳戶的選項、精簡模式、CLI 卡；順序＝AgentProviders.All）。
+    /// existingFolders＝使用者資料夾底下可以直接加成帳戶的設定資料夾（新增帳戶對話框的「使用現有的設定資料夾」；path 是完整路徑、display 是 ~/… 的寫法）
+    /// </summary>
+    private JArray RenderProviders()
+    {
+        var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        return new(AgentProviders.All.Select(p => new JObject
         {
             ["key"] = p.ToString(),
             ["name"] = AgentProviders.ProductName(p),
             ["isolatedAccounts"] = AccountRules.SupportsIsolatedAccounts(p),
             ["safeMode"] = AccountRules.SupportsSafeMode(p),
             ["sharedCustomizations"] = AccountRules.SupportsSharedCustomizations(p),
+            ["existingFolders"] = new JArray(accounts.FindExistingFolders(p).Select(dir => new JObject
+            {
+                ["path"] = dir,
+                ["display"] = ExistingFolderRules.Display(dir, home),
+            })),
         }));
+    }
 
     private static string StatusName(AccountStatus status) => status switch
     {

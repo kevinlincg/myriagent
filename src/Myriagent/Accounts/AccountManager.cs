@@ -478,7 +478,8 @@ internal sealed class AccountManager : IDisposable
     /// </summary>
     private static void PrepareIsolatedFolder(AgentAccount account)
     {
-        if (account.Provider == AgentProvider.Grok && !account.IsSystemDefault && !string.IsNullOrWhiteSpace(account.ConfigDirectory))
+        // 使用者原有的資料夾（AddExisting）不動：config.toml 是他自己的
+        if (account.Provider == AgentProvider.Grok && !account.IsSystemDefault && !account.ExistingFolder && !string.IsNullOrWhiteSpace(account.ConfigDirectory))
             GrokAcpRules.EnsureIsolatedHome(account.ConfigDirectory);
     }
 
@@ -593,6 +594,68 @@ internal sealed class AccountManager : IDisposable
         return account;
     }
 
+    /// <summary>
+    /// 把一個現有的設定資料夾加成帳戶（例如終端機以 CLAUDE_CONFIG_DIR=~/.claude-work 用的那個）：資料夾原封不動——登入、Skills、外掛、記憶、
+    /// CLI 對話紀錄都是它原本的，和在終端機用同一份。app 不建立、不搬動，移除帳戶時也不刪；不共用預設帳戶的設定（AgentAccount.ExistingFolder）。
+    /// 檢查不過（ExistingFolderRules.Check）丟 InvalidOperationException（訊息給使用者看）。加入後只檢查登入狀態：通常早就登入了，
+    /// 沒登入的由使用者自己在帳戶卡按登入
+    /// </summary>
+    public AgentAccount AddExisting(AgentProvider provider, string? label, string? color, string? directory)
+    {
+        var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        var folder = ExistingFolderRules.Clean(directory, home);
+        var check = ExistingFolderRules.Check(provider, folder, Directory.Exists, DefaultDirectories(provider, home), UsedDirectories(provider));
+        if (check != ExistingFolderCheck.Ok)
+            throw new InvalidOperationException(ExistingFolderRules.Describe(check, provider, folder));
+
+        var name = label?.Trim();
+        var account = new AgentAccount
+        {
+            Provider = provider,
+            Label = string.IsNullOrEmpty(name) ? ExistingFolderRules.DefaultLabel(provider, folder!, accounts) : name.Length <= 40 ? name : name[..40],
+            Color = AccountRules.NormalizeColor(color) ?? AccountRules.DefaultColor(provider, accounts),
+            ConfigDirectory = folder,
+            ExistingFolder = true,
+            ShareCustomizations = false,
+        };
+        accounts.Add(account);
+        Save();
+        SetStatus(account, AccountStatus.Checking, null);
+        Watch(account);
+        RaiseChanged();
+        _ = RefreshAsync(account.Id, includeStatus: true);
+        return account;
+    }
+
+    /// <summary>
+    /// 使用者資料夾底下可以直接加成帳戶的設定資料夾（新增帳戶對話框列出來；ExistingFolderRules.Find）。讀不到使用者資料夾就當作沒有
+    /// </summary>
+    public IReadOnlyList<string> FindExistingFolders(AgentProvider provider)
+    {
+        if (!AccountRules.SupportsIsolatedAccounts(provider))
+            return Array.Empty<string>();
+        var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        try
+        {
+            if (!Directory.Exists(home))
+                return Array.Empty<string>();
+            return ExistingFolderRules.Find(provider, Directory.EnumerateDirectories(home).ToList(), path => File.Exists(path) || Directory.Exists(path),
+                DefaultDirectories(provider, home), UsedDirectories(provider));
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return Array.Empty<string>();
+        }
+    }
+
+    /// <summary>「本機預設」帳戶用的資料夾：CLI 自己的預設位置，以及這次啟動實際用的（繼承的 CLAUDE_CONFIG_DIR／CODEX_HOME／GROK_HOME）</summary>
+    private static string[] DefaultDirectories(AgentProvider provider, string home)
+        => new[] { ExistingFolderRules.BuiltInDirectory(provider, home), AccountRules.ResolveConfigDirectory(new AgentAccount { Provider = provider }) };
+
+    /// <summary>清單裡這種 CLI 的帳戶實際用的資料夾</summary>
+    private IEnumerable<string> UsedDirectories(AgentProvider provider)
+        => accounts.Where(a => a.Provider == provider).Select(AccountRules.ResolveConfigDirectory).ToList();
+
     public void Update(string id, string? label, string? color, bool? safeMode, bool? shareCustomizations = null)
     {
         var account = Find(id);
@@ -604,7 +667,8 @@ internal sealed class AccountManager : IDisposable
             account.Color = c;
         if (safeMode.HasValue && AccountRules.SupportsSafeMode(account.Provider))
             account.SafeMode = safeMode.Value;
-        if (shareCustomizations.HasValue && !account.IsSystemDefault && AccountRules.SupportsSharedCustomizations(account.Provider)
+        // 使用者原有的資料夾（AddExisting）不共用：ShareCustomizations 維持 false
+        if (shareCustomizations.HasValue && !account.IsSystemDefault && !account.ExistingFolder && AccountRules.SupportsSharedCustomizations(account.Provider)
             && account.ShareCustomizations != shareCustomizations.Value)
         {
             account.ShareCustomizations = shareCustomizations.Value;
@@ -804,7 +868,8 @@ internal sealed class AccountManager : IDisposable
     /// </summary>
     internal static string? GetDeletableAccountRoot(AgentAccount account)
     {
-        if (account.IsSystemDefault)
+        // 使用者原有的資料夾（AddExisting）絕不刪
+        if (account.IsSystemDefault || account.ExistingFolder)
             return null;
         try
         {

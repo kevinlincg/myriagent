@@ -56,9 +56,13 @@ internal static class SharedCustomizationRules
     /// <summary>CLI 自動記憶的索引檔（每個專案的 memory\ 底下；只有它會整份載入）</summary>
     public const string MemoryIndexFileName = "MEMORY.md";
 
-    /// <summary>這個帳戶現在要不要共用：隔離帳戶、這種 CLI 支援、使用者沒關掉、不在精簡模式（精簡模式本來就不載入這些）</summary>
+    /// <summary>
+    /// 這個帳戶現在要不要共用：隔離帳戶、這種 CLI 支援、使用者沒關掉、不在精簡模式（精簡模式本來就不載入這些）。
+    /// 使用者原有的資料夾（AgentAccount.ExistingFolder）一律不共用：那是他在終端機也在用的資料夾，不能把裡面的 skills 搬走換成連結
+    /// </summary>
     public static bool IsActive(AgentAccount account)
         => !account.IsSystemDefault
+           && !account.ExistingFolder
            && AccountRules.SupportsSharedCustomizations(account.Provider)
            && account.ShareCustomizations
            && !account.SafeMode;

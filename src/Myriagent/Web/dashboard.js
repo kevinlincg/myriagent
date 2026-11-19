@@ -24,6 +24,7 @@ import { createDoctorStrip, updateDoctorStrip } from './codexdoctor.js';
 // 每週額度每 5% 的 token（只有桌面）
 import { requestUsageSegments, createUsageSegmentsSection, renderUsageSegmentsSection } from './usageseg.js';
 import { loginExpiry, loginExpiryText } from './loginrules.js';
+import { folderChoices, folderLabel } from './existingfolderrules.js';
 import { tokenCounter } from './tokenfx.js';
 import { quotaLocked, resetCountdown, countdownCells, accountPulse, pulsePhase, burnForecast, resetCreditsInfo, resetCreditAction, creditPips, creditExpiryCells, creditUsed, CREDIT_EXPIRY_CELLS } from './fxrules.js';
 
@@ -396,6 +397,8 @@ function updateCard(card, a, first) {
   const subParts = [providerInfo(a.provider).name, a.email, a.plan].filter(Boolean);
   subParts.forEach((t, i) => { if (i) e.sub.append(h('span', { class: 'sep', text: '・' })); e.sub.append(h('span', { text: t })); });
   if (a.isSystemDefault) e.sub.append(h('span', { class: 'tag', text: '本機預設', title: a.configDirectory || '' }));
+  // 使用者原有的設定資料夾（新增帳戶的「使用現有的設定資料夾」）：和終端機用同一份
+  if (a.existingFolder) e.sub.append(h('span', { class: 'tag', text: '現有資料夾', title: a.configDirectory || '' }));
   if (a.safeMode && providerInfo(a.provider).safeMode) e.sub.append(h('span', { class: 'tag', text: '精簡模式', title: '不載入外掛、hooks、MCP、' + instructionFile(a.provider) }));
   // 設定資料夾的路徑（瀏覽器版的邏輯帳戶、remoteOnly 沒有；資料夾不存在時宿主會先建立）
   const dir = !isHub && !remoteOnly && typeof a.configDirectory === 'string' ? a.configDirectory : '';
@@ -834,7 +837,8 @@ export function accountMenu(a, anchor, at) {
         } }
       : null,
     // 隔離帳戶共用系統預設帳戶的全域指示、記憶、MCP、skills（登入各自分開；精簡模式下不載入這些，共用也不作用）
-    providerInfo(a.provider).sharedCustomizations && !a.isSystemDefault
+    // 使用者原有的設定資料夾不共用（共用會把資料夾裡的 skills 搬走換成連結；宿主也不收）
+    providerInfo(a.provider).sharedCustomizations && !a.isSystemDefault && !a.existingFolder
       ? { label: '共用預設帳戶的設定',
         desc: a.safeMode ? '精簡模式下不作用' : instructionFile(a.provider) + '、記憶、MCP、skills 沿用系統預設帳戶，登入各自分開',
         checked: !!a.shareCustomizations, keepOpen: false,
@@ -906,7 +910,10 @@ async function confirmLogout(a) {
       : a.isSystemDefault
         ? '這個帳戶使用這台電腦預設的設定資料夾' + (a.configDirectory ? '（' + a.configDirectory + '）' : '') + '，終端機、VS Code 等其他地方的 '
           + info.name + ' 也會一起登出。'
-        : null,
+        : a.existingFolder
+          ? '這個帳戶使用你原有的設定資料夾' + (a.configDirectory ? '（' + a.configDirectory + '）' : '') + '，終端機等其他地方用同一個資料夾的 '
+            + info.name + ' 也會一起登出。'
+          : null,
     confirmLabel: info.isolatedAccounts ? '登出' : '開啟 agy 視窗',
   });
   if (r.ok) post({ cmd: 'accountLogout', accountId: a.id });
@@ -923,12 +930,14 @@ async function confirmRemove(a) {
       : null,
     checkbox: {
       label: '同時刪除這個帳戶的設定資料夾（登入憑證與 CLI 對話紀錄）',
-      disabled: !!a.isSystemDefault,
-      note: a.isSystemDefault ? '這是這台電腦預設的設定資料夾，不能從這裡刪除：' + (a.configDirectory || '') : (a.configDirectory || ''),
+      disabled: !!a.isSystemDefault || !!a.existingFolder,
+      note: a.isSystemDefault ? '這是這台電腦預設的設定資料夾，不能從這裡刪除：' + (a.configDirectory || '')
+        : a.existingFolder ? '這是你原有的設定資料夾，只會從清單移除，資料夾不會被刪除：' + (a.configDirectory || '')
+          : (a.configDirectory || ''),
     },
     confirmLabel: '移除', danger: true, width: 480,
   });
-  if (r.ok) post({ cmd: 'accountRemove', accountId: a.id, deleteData: !!(r.checked && !a.isSystemDefault) });
+  if (r.ok) post({ cmd: 'accountRemove', accountId: a.id, deleteData: !!(r.checked && !a.isSystemDefault && !a.existingFolder) });
 }
 
 function palettePicker(value, onPick) {
@@ -969,28 +978,51 @@ export function openAddAccount() {
   const defName = (p) => p + ' 帳戶' + (providerInfo(p).isolatedAccounts ? ' ' + (count(p) + 1) : '');
   const name = h('input', { type: 'text', class: 'input', placeholder: defName(provider), maxlength: '40', autocomplete: 'off', spellcheck: 'false' });
   const preview = h('span', { class: 'add-preview' });
+  // 使用現有的設定資料夾（終端機以 CLAUDE_CONFIG_DIR 之類分開的帳戶）：填了就直接用那個資料夾，不建立新的、不必重新登入
+  const folder = h('input', { type: 'text', class: 'input', placeholder: '留空＝建立新的資料夾並登入', autocomplete: 'off', spellcheck: 'false' });
+  const found = h('div', { class: 'add-folders' });
+  const folderField = h('div', { class: 'field' }, h('div', { class: 'field-label', text: '使用現有的設定資料夾（選填）' }), folder, found);
+  const chosenFolder = () => (providerInfo(provider).isolatedAccounts ? folder.value.trim() : '');
+  function renderFound() {
+    found.textContent = '';
+    const list = providerInfo(provider).isolatedAccounts ? folderChoices(providerInfo(provider), state.accounts) : [];
+    if (list.length) found.append(h('span', { class: 'field-hint', text: '這台電腦上找到的：' }));
+    for (const f of list) {
+      const b = h('button', { type: 'button', class: 'btn sm', text: f.display, title: f.path });
+      b.addEventListener('click', () => { folder.value = f.path; sync(); folder.focus(); });
+      found.append(b);
+    }
+  }
   const pal = palettePicker(color, (c) => { color = c; colorTouched = true; sync(); });
   const choice = (p) => {
     const c = ADD_CHOICE[p] || { title: providerInfo(p).name, sub: providerInfo(p).name };
     const ok = available(p);
     const b = h('button', { type: 'button', class: 'prov', role: 'radio', dataset: { p }, disabled: !ok, title: ok ? null : '已經加入了：' + p + ' 一台電腦只能登入一個帳戶' },
       providerMark(p), h('span', { class: 'prov-text' }, h('b', { text: c.title }), h('span', { text: ok ? c.sub : '已加入（一台電腦一個）' })));
-    b.addEventListener('click', () => { provider = p; if (!colorTouched) { color = DEFAULT_COLORS[p] || color; pal.setValue(color); } name.placeholder = defName(p); sync(); });
+    b.addEventListener('click', () => { provider = p; if (!colorTouched) { color = DEFAULT_COLORS[p] || color; pal.setValue(color); } folder.value = ''; renderFound(); sync(); });
     return b;
   };
   const provs = h('div', { class: 'provs', role: 'radiogroup', 'aria-label': '代理' }, providerKeys().map(choice));
   const note = h('p', { class: 'form-note' });
   function sync() {
     for (const b of provs.children) { const on = b.dataset.p === provider; b.classList.toggle('on', on); b.setAttribute('aria-checked', String(on)); b.style.setProperty('--acc', on ? color : (DEFAULT_COLORS[b.dataset.p] || '#8A94A6')); }
+    const dir = chosenFolder();
+    folderField.hidden = !providerInfo(provider).isolatedAccounts;
+    name.placeholder = (dir && folderLabel(provider, dir)) || defName(provider);
     preview.style.setProperty('--acc', color);
     preview.textContent = (name.value.trim() || name.placeholder);
-    note.textContent = providerInfo(provider).isolatedAccounts
-      ? '會建立一個獨立的設定資料夾給這個帳戶，不影響這台電腦原本的登入。新增後會立刻開始登入流程。'
-      : '使用這台電腦 agy 的登入（存在 Windows 認證管理員，一台電腦只能有一個）。新增後會檢查登入狀態，還沒登入就開啟 agy 視窗登入。';
+    ok.textContent = dir ? '加入' : '新增並登入';
+    note.textContent = !providerInfo(provider).isolatedAccounts
+      ? '使用這台電腦 agy 的登入（存在 Windows 認證管理員，一台電腦只能有一個）。新增後會檢查登入狀態，還沒登入就開啟 agy 視窗登入。'
+      : dir
+        ? '直接使用這個資料夾：登入、Skills、外掛、記憶和 CLI 對話紀錄都是它原本的，和你在終端機用的是同一份。不會搬動它，移除帳戶時也不會刪除它。'
+        : '會建立一個獨立的設定資料夾給這個帳戶，不影響這台電腦原本的登入。新增後會立刻開始登入流程。';
   }
   name.addEventListener('input', sync);
+  folder.addEventListener('input', sync);
   const body = h('div', { class: 'form' },
     h('div', { class: 'field' }, h('div', { class: 'field-label', text: '代理' }), provs),
+    folderField,
     h('label', { class: 'field' }, h('span', { class: 'field-label', text: '名稱' }), name),
     h('div', { class: 'field' }, h('div', { class: 'field-label', text: '顏色' }), pal, h('div', { class: 'field-hint' }, h('span', { text: '分頁、卡片與圓環會用這個顏色：' }), preview)),
     note);
@@ -1000,6 +1032,13 @@ export function openAddAccount() {
   cancel.addEventListener('click', () => d.close());
   const submit = () => {
     if (!available(provider)) return;
+    const dir = chosenFolder();
+    if (dir) {
+      // 名稱留空由宿主取（同名的帳戶已經有了會改用編號）；成功或失敗（資料夾不存在、已經有帳戶在用）都由宿主提示
+      post({ cmd: 'accountAdd', provider, label: name.value.trim(), color, directory: dir });
+      d.close();
+      return;
+    }
     const label = name.value.trim() || name.placeholder;
     post({ cmd: 'accountAdd', provider, label, color });
     d.close();
@@ -1007,6 +1046,8 @@ export function openAddAccount() {
   };
   ok.addEventListener('click', submit);
   name.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.isComposing && e.keyCode !== 229) { e.preventDefault(); submit(); } });
+  folder.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.isComposing && e.keyCode !== 229) { e.preventDefault(); submit(); } });
+  renderFound();
   sync();
   return d;
 }
