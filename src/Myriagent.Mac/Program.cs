@@ -57,6 +57,8 @@ internal static class Program
         Log.Info($"啟動 Clode Myriagent {AppVersionInfo.Display}（macOS），資料夾 {AppPaths.Root}");
         // 記下自己（版本與執行檔）：之後開的較新版本據此請這一份交棒
         InstanceHandover.MarkRunning(root, self);
+        // 從 Finder、Dock 啟動時 PATH 只有系統的資料夾：先套用使用者登入殼層的 PATH，之後才找得到 claude、codex、node、git
+        MacEnvironment.ImportLoginShellPath(TimeSpan.FromSeconds(8));
 
         AppDomain.CurrentDomain.UnhandledException += (_, e) =>
         {

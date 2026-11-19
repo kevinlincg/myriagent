@@ -173,6 +173,19 @@ internal partial class AgentWebView : IAgentView, IDisposable
         Evaluate(script);
     }
 
+    /// <summary>在網頁裡執行一段腳本並拿回字串結果（冒煙測試用）；done 的第二個參數是錯誤訊息（沒有錯誤是 null）</summary>
+    public void EvaluateString(string script, Action<string?, string?> done)
+    {
+        try
+        {
+            webView.EvaluateJavaScript(script, (result, error) => done(result?.ToString(), error?.LocalizedDescription));
+        }
+        catch (Exception ex)
+        {
+            done(null, ex.Message);
+        }
+    }
+
     private void Evaluate(string script)
     {
         try

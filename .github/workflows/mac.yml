@@ -42,6 +42,53 @@ jobs:
         shell: bash
         working-directory: src/Myriagent.Mac
         run: dotnet build Myriagent.Mac.csproj -c Release -nologo -clp:NoSummary 2>&1 | tee ../../build.log
+      # 真的把 app 跑起來：獨立的資料夾（不找、不執行這台的任何 CLI），介面載入後 app 自己把網頁的樣子寫成 smoke.json 再結束
+      - name: Smoke run
+        shell: bash
+        run: |
+          set -uo pipefail
+          APP=$(find src/Myriagent.Mac/bin/Release -maxdepth 4 -name '*.app' | head -1)
+          echo "APP=$APP"
+          test -n "$APP"
+          ls "$APP/Contents" "$APP/Contents/MacOS"
+          du -sh "$APP"
+          DATA="$RUNNER_TEMP/myriagent-data"
+          export MYRIAGENT_MAC_SMOKE="$PWD/smoke.json"
+          BIN=$(find "$APP/Contents/MacOS" -maxdepth 1 -type f -perm +111 | head -1)
+          echo "BIN=$BIN"
+          "$BIN" --data "$DATA" > app-stdout.log 2>&1 &
+          PID=$!
+          for i in $(seq 1 70); do
+            if ! kill -0 $PID 2>/dev/null; then break; fi
+            if [ "$i" = "12" ]; then screencapture -x screen.png || true; fi
+            sleep 1
+          done
+          if kill -0 $PID 2>/dev/null; then echo "app still running after 70s: killing"; kill -9 $PID; fi
+          wait $PID; echo "exit code: $?"
+          echo "--- stdout/stderr"; tail -60 app-stdout.log || true
+          echo "--- app log"; cat "$DATA"/logs/*.log 2>/dev/null | tail -80 || true
+          echo "--- smoke.json"; cat smoke.json
+          python3 - <<'PY'
+          import json, sys
+          r = json.load(open('smoke.json'))
+          problems = []
+          if not r.get('loaded'): problems.append('interface did not load')
+          if r.get('origin') != 'https://myriagent.local': problems.append('origin is %r' % r.get('origin'))
+          if not r.get('bridge'): problems.append('host bridge missing')
+          if not r.get('secure'): problems.append('not a secure context')
+          if (r.get('nodes') or 0) < 50: problems.append('page looks empty (%s nodes)' % r.get('nodes'))
+          if problems: sys.exit('SMOKE FAILED: ' + '; '.join(problems))
+          print('SMOKE OK:', r.get('title'), r.get('nodes'), 'nodes')
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: mac-smoke
+          if-no-files-found: ignore
+          path: |
+            smoke.json
+            screen.png
+            app-stdout.log
       - name: Error summary
         if: failure()
         shell: bash

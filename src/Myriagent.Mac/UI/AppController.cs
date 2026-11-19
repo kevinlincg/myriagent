@@ -183,6 +183,7 @@ internal sealed class AppController : IAgentHost, IAppUpdateShell, IWindowHost, 
 
         mainWindow = new MainWindow(this);
         Hub.AttachWindows(this);
+        MacSmoke.AttachIfRequested(this, mainWindow);
         // 同步在主視窗第一次載入 2.5 秒後才啟動；一直沒有載入時 10 秒後也啟動（Start 只有第一次有效）
         mainWindow.ViewLoaded += OnFirstViewLoaded;
         ScheduleSyncStart(SyncStartupRules.FallbackDelay);
