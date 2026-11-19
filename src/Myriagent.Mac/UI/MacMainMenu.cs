@@ -1,4 +1,5 @@
 using AppKit;
+using Foundation;
 using ObjCRuntime;
 
 namespace Myriagent.UI;
