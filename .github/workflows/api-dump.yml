@@ -16,7 +16,11 @@ jobs:
       - shell: bash
         run: |
           set -euo pipefail
-          DLL=$(find "$(dirname "$(readlink -f "$(which dotnet)" 2>/dev/null || which dotnet)")" "$HOME/.dotnet" /usr/local/share/dotnet -path '*Microsoft.macOS.Ref*' -name Microsoft.macOS.dll 2>/dev/null | sort | tail -1)
+          ROOT="${DOTNET_ROOT:-$HOME/.dotnet}"
+          find "$ROOT/packs" -maxdepth 1 -iname '*macos*' || true
+          find "$ROOT/packs" -path '*Microsoft.macOS.Ref*' -name Microsoft.macOS.dll || true
+          DLL=$( (find "$ROOT/packs" -path '*Microsoft.macOS.Ref*' -name Microsoft.macOS.dll || true) | (grep -i 'net10' || true) | sort | tail -1)
+          if [ -z "$DLL" ]; then DLL=$( (find "$ROOT/packs" -path '*Microsoft.macOS.Ref*' -name Microsoft.macOS.dll || true) | sort | tail -1); fi
           echo "DLL=$DLL"
           test -n "$DLL"
           dotnet run --project tools/mac-api-dump -c Release -- "$DLL" tools/mac-api-dump/types.txt > api.txt
