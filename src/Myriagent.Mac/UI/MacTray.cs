@@ -36,6 +36,9 @@ internal sealed class MacTray : IDisposable
     /// <summary>選單列用的小圖（app 圖示縮成選單列的高度）；拿不到圖示就只顯示文字</summary>
     private static NSImage? StatusImage()
     {
+        // CI 的冒煙測試不拿圖示：測試機（沒有人登入的虛擬機）上向系統要 app 圖示會一直等不到回覆，整個啟動卡在這裡
+        if (!string.IsNullOrEmpty(Environment.GetEnvironmentVariable("MYRIAGENT_MAC_SMOKE")))
+            return null;
         try
         {
             if (NSApplication.SharedApplication.ApplicationIconImage?.Copy() is not NSImage image)

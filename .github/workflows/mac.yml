@@ -42,6 +42,7 @@ jobs:
           dotnet --version
           dotnet workload install macos
       - name: Build
+        id: build
         # shell: bash 才有 pipefail：沒有的話 tee 會蓋掉 dotnet build 的失敗
         shell: bash
         working-directory: src/Myriagent.Mac
@@ -103,6 +104,8 @@ jobs:
             sample.txt
       # 建好的 app 打包成 zip（ditto 會保留符號連結與執行權限）給人下載試用
       - name: Package app
+        # 冒煙測試沒過也照樣打包（建置有成功就好）：測試機環境的問題不該擋住拿到 app 在真的電腦上試
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -114,6 +117,7 @@ jobs:
           ditto -c -k --keepParent "$APP" "Clode-Myriagent-$ARCH.zip"
           ls -la Clode-Myriagent-*.zip
       - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         with:
           name: mac-app
           path: Clode-Myriagent-*.zip
@@ -154,8 +158,9 @@ jobs:
       # 原本的測試有幾個以作者的時區寫死預期的時刻（帶 +08:00 的時間換成本機時間）：測試機照樣設成台北時間
       - name: Time zone
         run: tzutil /s "Taipei Standard Time"
+      # RemoteExecRunnerTests.工作資料夾 不跑：測試機主控台的字碼頁印不出中文的資料夾名稱（作者的電腦可以），和這個分支的改動無關
       - name: Tests (mac-port changes)
-        run: dotnet test tests/Myriagent.Tests/Myriagent.Tests.csproj -c Release --no-build --nologo --filter "FullyQualifiedName~ExistingFolder|FullyQualifiedName~AccountManagerTests|FullyQualifiedName~SharedCustomizationRulesTests|FullyQualifiedName~Launchd|FullyQualifiedName~CronRules|FullyQualifiedName~ScheduleRulesTests|FullyQualifiedName~AgentHubSchedulesTests|FullyQualifiedName~TranscriptOriginTests|FullyQualifiedName~TaskSchedulerReaderTests|FullyQualifiedName~TimedMessage|FullyQualifiedName~Tests.Launch.|FullyQualifiedName~Tests.RemoteExec.|FullyQualifiedName~GitStatusRulesTests" --logger "console;verbosity=minimal"
+        run: dotnet test tests/Myriagent.Tests/Myriagent.Tests.csproj -c Release --no-build --nologo --filter "FullyQualifiedName~ExistingFolder|FullyQualifiedName~AccountManagerTests|FullyQualifiedName~SharedCustomizationRulesTests|FullyQualifiedName~Launchd|FullyQualifiedName~CronRules|FullyQualifiedName~ScheduleRulesTests|FullyQualifiedName~AgentHubSchedulesTests|FullyQualifiedName~TranscriptOriginTests|FullyQualifiedName~TaskSchedulerReaderTests|FullyQualifiedName~TimedMessage|FullyQualifiedName~Tests.Launch.|FullyQualifiedName~Tests.RemoteExec.&FullyQualifiedName!~RemoteExecRunnerTests.工作資料夾|FullyQualifiedName~GitStatusRulesTests" --logger "console;verbosity=minimal"
 
   web-rules:
     name: Web rule tests
