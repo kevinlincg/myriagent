@@ -42,7 +42,7 @@ public sealed class TerminalConsoleRulesTests
             new Dictionary<string, string?> { ["PATH"] = "/bin", ["XAI_API_KEY"] = "k" },
             ["ANTHROPIC_API_KEY", "GEMINI_API_KEY", "XAI_API_KEY", "bad-name"]);
         unset.Should().Equal("ANTHROPIC_API_KEY", "GEMINI_API_KEY");
-        set.Should().Equal(new KeyValuePair<string, string>("XAI_API_KEY", "k"));
+        set.Select(kv => kv.Key + "=" + kv.Value).Should().Equal("XAI_API_KEY=k");
         Myriagent.Accounts.AccountRules.CredentialVariables.Should().Contain(new[] { "ANTHROPIC_API_KEY", "OPENAI_API_KEY", "GEMINI_API_KEY", "XAI_API_KEY" });
     }
 
