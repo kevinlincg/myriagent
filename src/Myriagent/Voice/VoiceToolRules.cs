@@ -32,6 +32,8 @@ internal static class VoiceToolRules
     /// 依 PATH 的目錄順序找 python.exe；略過 <c>WindowsApps</c> 底下的（Microsoft Store 的捷徑：沒有安裝 Python 時執行它會開商店）。
     /// 目錄清單同 CLI 與 ffmpeg（<see cref="CliLocator.MergeSearchDirectories"/>：展開環境變數、去重、略過 UNC）
     /// </summary>
+    private static readonly string[] PythonNames = OperatingSystem.IsWindows() ? ["python.exe"] : ["python3", "python"];
+
     public static string? FindPython(IEnumerable<string?> pathValues, Func<string, bool> fileExists)
     {
         ArgumentNullException.ThrowIfNull(pathValues);
@@ -40,9 +42,13 @@ internal static class VoiceToolRules
         {
             if (dir.Contains(@"\Microsoft\WindowsApps", StringComparison.OrdinalIgnoreCase))
                 continue;
-            var candidate = Path.Join(dir, "python.exe");
-            if (fileExists(candidate))
-                return candidate;
+            // Windows 是 python.exe；macOS、Linux 的 Python 3 叫 python3（有些環境另有 python）
+            foreach (var name in PythonNames)
+            {
+                var candidate = Path.Join(dir, name);
+                if (fileExists(candidate))
+                    return candidate;
+            }
         }
         return null;
     }

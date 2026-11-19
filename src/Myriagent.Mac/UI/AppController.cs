@@ -98,7 +98,8 @@ internal sealed class AppController : IAgentHost, IAppUpdateShell, IWindowHost, 
         AgentHub? hubRef = null;
         Cli = ProbeRules.NoCliRequested()
             ? new CliManager(http, provider => hubRef?.HasRunningSessions(provider) ?? false, () => false, startBackgroundChecks: false, ProbeRules.NoCliOptions())
-            : new CliManager(http, provider => hubRef?.HasRunningSessions(provider) ?? false, () => Settings.AutoUpdateCli);
+            : new CliManager(http, provider => hubRef?.HasRunningSessions(provider) ?? false, () => Settings.AutoUpdateCli, startBackgroundChecks: true,
+                MacCliLocator.Options());
         Accounts = new AccountManager(BeginInvoke, Cli, http, id => hubRef?.RunningForAccount(id) ?? 0);
         bool probing = !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable(ProbeRules.ProbeVariable));
         Accounts.ClaudeTokenRefreshEnabled = () => !probing && Settings.ClaudeIdleTokenRefresh;

@@ -144,12 +144,12 @@ internal static class GitStatusRules
     /// <summary>在 PATH 找 git.exe（只認完整路徑的項目：不從目前資料夾找），找不到再試常見的安裝位置</summary>
     public static string? FindGit(string? pathVariable, IEnumerable<string> fallbacks, Func<string, bool> fileExists)
     {
-        foreach (var entry in (pathVariable ?? string.Empty).Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        foreach (var entry in (pathVariable ?? string.Empty).Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
         {
             var dir = entry.Trim('"');
             if (dir.Length == 0 || !Path.IsPathFullyQualified(dir) || dir.StartsWith(@"\\", StringComparison.Ordinal))
                 continue;
-            var candidate = Path.Combine(dir, "git.exe");
+            var candidate = Path.Combine(dir, Core.PlatformFiles.Exe("git"));
             if (fileExists(candidate))
                 return candidate;
         }

@@ -84,7 +84,7 @@ internal static partial class LaunchRules
         if (fileName.IndexOfAny(['\\', '/']) >= 0)
             return null;
         var name = Path.HasExtension(fileName) ? fileName : fileName + ".exe";
-        foreach (var raw in (pathVariable ?? string.Empty).Split(';'))
+        foreach (var raw in (pathVariable ?? string.Empty).Split(Path.PathSeparator))
         {
             var dir = raw.Trim().Trim('"');
             if (dir.Length == 0 || !Path.IsPathRooted(dir))

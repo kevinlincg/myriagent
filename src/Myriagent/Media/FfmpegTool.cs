@@ -56,7 +56,7 @@ internal static class FfmpegTool
         var dirs = CliLocator.MergeSearchDirectories(pathValues, Array.Empty<string>());
         // 用 Path.Join：清單裡的目錄去掉了結尾的反斜線，磁碟根目錄「C:」以 Path.Combine 接檔名會變成磁碟相對路徑
         string? Find(string name) => dirs.Select(d => Path.Join(d, name)).FirstOrDefault(fileExists);
-        return (Find("ffmpeg.exe"), Find("ffprobe.exe"));
+        return (Find(Core.PlatformFiles.Exe("ffmpeg")), Find(Core.PlatformFiles.Exe("ffprobe")));
     }
 
     /// <summary>影片長度（秒）；讀不到回 null</summary>

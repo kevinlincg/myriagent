@@ -278,7 +278,7 @@ internal static class CliLocator
 
         foreach (var value in pathValues ?? Enumerable.Empty<string?>())
         {
-            foreach (var dir in (value ?? string.Empty).Split(';'))
+            foreach (var dir in (value ?? string.Empty).Split(Path.PathSeparator))
                 Add(dir);
         }
 
