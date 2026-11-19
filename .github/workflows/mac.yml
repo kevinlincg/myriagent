@@ -148,6 +148,9 @@ jobs:
         run: dotnet build Myriagent.slnx -c Release -nologo
       # 這個分支在共用的程式裡改到的功能的測試：測試專案是 Windows 的，在這裡跑。整套測試要很久，只跑相關的類別：
       # 使用現有的設定資料夾（名稱含 ExistingFolder 的、帳戶管理員、共用設定的規則）、排程（macOS 的 launchd／crontab 規則與原本的排程規則）
+      # 原本的測試有幾個以作者的時區寫死預期的時刻（帶 +08:00 的時間換成本機時間）：測試機照樣設成台北時間
+      - name: Time zone
+        run: tzutil /s "Taipei Standard Time"
       - name: Tests (mac-port changes)
         run: dotnet test tests/Myriagent.Tests/Myriagent.Tests.csproj -c Release --no-build --nologo --filter "FullyQualifiedName~ExistingFolder|FullyQualifiedName~AccountManagerTests|FullyQualifiedName~SharedCustomizationRulesTests|FullyQualifiedName~Launchd|FullyQualifiedName~CronRules|FullyQualifiedName~ScheduleRulesTests|FullyQualifiedName~AgentHubSchedulesTests|FullyQualifiedName~TranscriptOriginTests|FullyQualifiedName~TaskSchedulerReaderTests|FullyQualifiedName~TimedMessage" --logger "console;verbosity=minimal"
 
