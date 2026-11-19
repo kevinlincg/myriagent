@@ -59,7 +59,16 @@
 
   <!-- Windows 專屬、macOS 另有實作或不適用的檔案（路徑相對於 src/Myriagent） -->
   <ItemGroup>
+    <!-- 檔名結尾是 .Win.cs 的是共用類別裡 Windows 專屬的那一半（partial）；macOS 的那一半在這個專案裡 -->
+    <MacExcluded Include="..\Myriagent\**\*.Win.cs" />
     <MacExcluded Include="..\Myriagent\Program.cs" />
+    <MacExcluded Include="..\Myriagent\Files\ThumbnailService.cs" />
+    <MacExcluded Include="..\Myriagent\RemoteDesk\DeskCursorReader.cs" />
+    <MacExcluded Include="..\Myriagent\RemoteDesk\DeskDiagnostics.cs" />
+    <MacExcluded Include="..\Myriagent\RemoteDesk\DeskFrameEncoder.cs" />
+    <MacExcluded Include="..\Myriagent\RemoteDesk\DxgiDeskScreen.cs" />
+    <MacExcluded Include="..\Myriagent\RemoteDesk\GdiDeskScreen.cs" />
+    <MacExcluded Include="..\Myriagent\SystemStatus\CpuTemperatureReader.cs" />
     <MacExcluded Include="..\Myriagent\UI\AgentWebView.cs" />
     <MacExcluded Include="..\Myriagent\UI\AppController.cs" />
     <MacExcluded Include="..\Myriagent\UI\AppIcons.cs" />

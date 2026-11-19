@@ -34,3 +34,20 @@ namespace Microsoft.Web.WebView2.Core
         UnknownProcessExited = 9,
     }
 }
+
+namespace Microsoft.Win32
+{
+    /// <summary>工作階段切換的原因（成員與 Microsoft.Win32.SystemEvents 相同；UI/ScreenPresenceRules.cs 用到）</summary>
+    internal enum SessionSwitchReason
+    {
+        ConsoleConnect = 1,
+        ConsoleDisconnect = 2,
+        RemoteConnect = 3,
+        RemoteDisconnect = 4,
+        SessionLogon = 5,
+        SessionLogoff = 6,
+        SessionLock = 7,
+        SessionUnlock = 8,
+        SessionRemoteControl = 9,
+    }
+}

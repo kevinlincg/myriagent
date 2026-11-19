@@ -33,9 +33,12 @@ jobs:
       - name: Install macOS workload
         run: dotnet workload install macos
       - name: Build
+        # shell: bash 才有 pipefail：沒有的話 tee 會蓋掉 dotnet build 的失敗
+        shell: bash
         run: dotnet build src/Myriagent.Mac/Myriagent.Mac.csproj -c Release -nologo -clp:NoSummary 2>&1 | tee build.log
       - name: Error summary
         if: failure()
+        shell: bash
         run: |
           grep -E ': error ' build.log | sed -E 's/ \[[^]]*\]$//' | sort -u > errors.txt || true
           wc -l errors.txt
