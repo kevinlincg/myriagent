@@ -127,6 +127,8 @@ internal sealed class AppController : IAgentHost, IAppUpdateShell, IWindowHost, 
         // 回合結束後代理開的程式還在跑：帳戶卡與對話標頭的「另開的程式」
         Hub.AttachBackgroundPrograms(BackgroundProgramMonitor.CreateDefault());
         // 對話框的燈號（資料流、網路、硬碟）與輸入框下方的 CPU 波形
+        // 執行列：偵測工作資料夾裡可以建置並執行的視窗程式專案（.NET、Electron）；程式以程序群組管理（Launch/LaunchProcess.Mac.cs）
+        Hub.AttachLaunch(new Myriagent.Launch.LaunchScanner(), new Myriagent.Launch.LaunchProcessStarter(), Path.Combine(AppPaths.Root, "launch"));
         Hub.AttachActivity(new ActivitySampler());
         Hub.AttachHealth(new HealthScanner(new HealthMachine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile))));
         // 排程頁：這台的 launchd 工作與 crontab（Windows 版讀的是工作排程器）；Myriagent 的定時訊息跟著一起掛

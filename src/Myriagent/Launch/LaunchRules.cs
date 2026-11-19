@@ -179,10 +179,13 @@ internal static partial class LaunchRules
 
     /// <summary>
     /// .NET 專案檔是不是可以執行的視窗程式；不是（主控台、程式庫、網站、測試、MAUI、舊式非 SDK 專案、XML 壞掉）回 null。
-    /// 只看沒有 Condition 的屬性（Directory.Build.props 等其他檔案設的不算）
+    /// 只看沒有 Condition 的屬性（Directory.Build.props 等其他檔案設的不算）。
+    /// windows＝這台是不是 Windows（null＝照實際的系統）：不是的話，只能在 Windows 執行的（WinForms、WPF、目標架構只有 -windows 或其他平台的）不列，
+    /// 多目標的優先選 -macos、其次不分平台的
     /// </summary>
-    public static LaunchTarget? FromDotNetProject(string projectPath, string relativePath, string xml)
+    public static LaunchTarget? FromDotNetProject(string projectPath, string relativePath, string xml, bool? windows = null)
     {
+        bool onWindows = windows ?? OperatingSystem.IsWindows();
         XElement? root;
         try
         {
@@ -227,6 +230,9 @@ internal static partial class LaunchRules
                        || (string.Equals(outputType, "Exe", StringComparison.OrdinalIgnoreCase) && (winForms || wpf));
         if (!windowed)
             return null;
+        // WinForms、WPF 只能在 Windows 執行
+        if (!onWindows && (winForms || wpf))
+            return null;
 
         // 多目標（TargetFrameworks）要以 -f 指定一個：有 Windows 的優先，其次第一個不是 netstandard 的；含 MSBuild 屬性參照的不猜
         string? framework = null;
@@ -234,9 +240,19 @@ internal static partial class LaunchRules
         if (Prop("TargetFrameworks") is { } list && !list.Contains("$(", StringComparison.Ordinal))
         {
             var all = list.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-            framework = all.FirstOrDefault(f => f.Contains("-windows", StringComparison.OrdinalIgnoreCase))
-                        ?? all.FirstOrDefault(f => !f.StartsWith("netstandard", StringComparison.OrdinalIgnoreCase));
+            framework = onWindows
+                ? all.FirstOrDefault(f => f.Contains("-windows", StringComparison.OrdinalIgnoreCase))
+                  ?? all.FirstOrDefault(f => !f.StartsWith("netstandard", StringComparison.OrdinalIgnoreCase))
+                : all.FirstOrDefault(f => f.Contains("-macos", StringComparison.OrdinalIgnoreCase))
+                  ?? all.FirstOrDefault(f => !f.StartsWith("netstandard", StringComparison.OrdinalIgnoreCase) && !IsOtherPlatformFramework(f));
+            // 這台一個都不能執行（例如只有 net10.0-windows 與 netstandard2.0）
+            if (!onWindows && framework == null)
+                return null;
             shownFramework = framework;
+        }
+        else if (!onWindows && shownFramework != null && IsOtherPlatformFramework(shownFramework))
+        {
+            return null;
         }
         if (shownFramework != null && shownFramework.Contains("$(", StringComparison.Ordinal))
             shownFramework = null;
@@ -244,6 +260,7 @@ internal static partial class LaunchRules
         var ui = wpf ? "WPF"
             : winForms ? "WinForms"
             : packages.Any(p => p.StartsWith("Avalonia", StringComparison.OrdinalIgnoreCase)) ? "Avalonia"
+            : shownFramework != null && shownFramework.Contains("-macos", StringComparison.OrdinalIgnoreCase) ? "macOS"
             : "WinExe";
         var name = Prop("AssemblyName") is { } assembly && !assembly.Contains("$(", StringComparison.Ordinal) && assembly.Length <= 80
             ? assembly
@@ -251,6 +268,12 @@ internal static partial class LaunchRules
         var detail = shownFramework != null ? $"{ui} · {shownFramework}" : ui;
         return new LaunchTarget(TargetId(projectPath), LaunchKind.DotNet, name, projectPath, relativePath, detail, Framework: framework);
     }
+
+    /// <summary>不是 macOS 能執行的目標架構（net10.0-windows、-android、-ios…；net10.0-macos 與不分平台的 net10.0 可以）</summary>
+    internal static bool IsOtherPlatformFramework(string framework)
+        => OtherPlatforms.Any(p => framework.Contains(p, StringComparison.OrdinalIgnoreCase));
+
+    private static readonly string[] OtherPlatforms = ["-windows", "-android", "-ios", "-maccatalyst", "-tvos", "-tizen", "-browser"];
 
     /// <summary>package.json 是不是 Electron 的桌面程式（dependencies 或 devDependencies 有 electron，而且有 start 或 dev 指令碼）；不是回 null</summary>
     public static LaunchTarget? FromPackageJson(string path, string relativePath, string json)
@@ -343,13 +366,16 @@ internal static partial class LaunchRules
 
     /// <summary>
     /// 執行的指令。.NET 用 dotnet run --no-build（照專案的 launchSettings.json、RunWorkingDirectory 與多目標，和在終端機執行一樣；組態和建置相同），
-    /// 工作資料夾是專案資料夾；Electron 經 cmd 執行 npm run（npm 是 .cmd；兩種模式的指令相同，差別只在和 app 綁不綁在一起）。<paramref name="comSpec"/> 是 %ComSpec%
+    /// 工作資料夾是專案資料夾；Electron 經 cmd 執行 npm run（npm 是 .cmd；兩種模式的指令相同，差別只在和 app 綁不綁在一起）。<paramref name="comSpec"/> 是 %ComSpec%。
+    /// windows＝這台是不是 Windows（null＝照實際的系統）：不是的話 Electron 直接執行 npm（PATH 上的；macOS 的 npm 是可以直接執行的指令碼）
     /// </summary>
-    public static LaunchCommand RunCommand(LaunchTarget target, string? comSpec, LaunchMode mode) => target.Kind switch
+    public static LaunchCommand RunCommand(LaunchTarget target, string? comSpec, LaunchMode mode, bool? windows = null) => target.Kind switch
     {
         LaunchKind.DotNet => new LaunchCommand("dotnet",
             ["run", "--project", target.ProjectPath, "-c", Configuration(mode), "--no-build", .. FrameworkArgs(target)], target.Directory),
         // 指令碼名稱只會是 ElectronScripts 裡的固定字串，不會帶進專案檔裡的任何文字
+        LaunchKind.Electron when !(windows ?? OperatingSystem.IsWindows()) => new LaunchCommand("npm",
+            ["run", ElectronScripts.Contains(target.Script) ? target.Script! : ElectronScripts[0]], target.Directory),
         LaunchKind.Electron => new LaunchCommand(string.IsNullOrWhiteSpace(comSpec) ? "cmd.exe" : comSpec,
             ["/d", "/s", "/c", "npm run " + (ElectronScripts.Contains(target.Script) ? target.Script : ElectronScripts[0])], target.Directory),
         _ => throw new ArgumentOutOfRangeException(nameof(target), target.Kind, null),
@@ -364,7 +390,9 @@ internal static partial class LaunchRules
     {
         if (string.Equals(path, folder, StringComparison.OrdinalIgnoreCase))
             return true;
-        var prefix = folder.EndsWith('\\') ? folder : folder + "\\";
+        // macOS 的路徑以 / 分隔
+        char separator = folder.StartsWith('/') ? '/' : '\\';
+        var prefix = folder.EndsWith(separator) ? folder : folder + separator;
         return path.StartsWith(prefix, StringComparison.OrdinalIgnoreCase);
     }
 

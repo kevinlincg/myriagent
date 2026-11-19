@@ -116,6 +116,9 @@ internal static class GitStatusRules
         {
             var full = Path.GetFullPath(folder!);
             var trimmed = full.TrimEnd('\\', '/');
+            // macOS：根目錄是「/」，短的資料夾名稱（/a）不是磁碟代號
+            if (full.StartsWith('/'))
+                return trimmed.Length == 0 ? "/" : trimmed;
             return trimmed.Length <= 2 ? trimmed + "\\" : trimmed;
         }
         catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException)
@@ -130,7 +133,10 @@ internal static class GitStatusRules
     /// </summary>
     public static string RepoKey(GitRepoStatus status)
     {
-        var trimmed = (status.CommonDir ?? status.Root).TrimEnd('\\', '/');
+        var path = status.CommonDir ?? status.Root;
+        var trimmed = path.TrimEnd('\\', '/');
+        if (path.StartsWith('/'))
+            return trimmed.Length == 0 ? "/" : trimmed;
         return trimmed.Length <= 2 ? trimmed + "\\" : trimmed;
     }
 

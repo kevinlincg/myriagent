@@ -73,12 +73,30 @@ internal static partial class LaunchRules
 
     /// <summary>
     /// 執行檔的完整路徑：有路徑的照用（存在才回），只有名稱的在 PATH 上找（沒有副檔名的加 .exe）；找不到回 null。
-    /// 不找 app 自己的目前資料夾（CreateProcess 自己找會先找那裡）
+    /// 不找 app 自己的目前資料夾（CreateProcess 自己找會先找那裡）。
+    /// windows＝這台是不是 Windows（null＝照實際的系統）：不是的話 PATH 以冒號分隔、路徑以 / 分隔、不補副檔名
     /// </summary>
-    public static string? ResolveExecutable(string fileName, string? pathVariable, Func<string, bool> fileExists)
+    public static string? ResolveExecutable(string fileName, string? pathVariable, Func<string, bool> fileExists, bool? windows = null)
     {
         if (string.IsNullOrWhiteSpace(fileName))
             return null;
+        if (!(windows ?? OperatingSystem.IsWindows()))
+        {
+            if (fileName.StartsWith('/'))
+                return fileExists(fileName) ? fileName : null;
+            if (fileName.Contains('/'))
+                return null;
+            foreach (var raw in (pathVariable ?? string.Empty).Split(':'))
+            {
+                var folder = raw.Trim();
+                if (folder.Length == 0 || !folder.StartsWith('/'))
+                    continue;
+                var found = folder.TrimEnd('/') + "/" + fileName;
+                if (fileExists(found))
+                    return found;
+            }
+            return null;
+        }
         if (Path.IsPathRooted(fileName))
             return fileExists(fileName) ? fileName : null;
         if (fileName.IndexOfAny(['\\', '/']) >= 0)

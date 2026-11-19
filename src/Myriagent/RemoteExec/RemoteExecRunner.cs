@@ -242,7 +242,8 @@ internal sealed class RemoteExecRunner : IRemoteExecRunner, IDisposable
             return;
         }
 
-        SafeKernelHandle? job = null;
+        // 包住程序樹的容器（Windows 是工作物件；macOS 沒有，結束時從程序樹找子孫）
+        IDisposable? job = null;
         Process? process = null;
         try
         {
@@ -275,12 +276,12 @@ internal sealed class RemoteExecRunner : IRemoteExecRunner, IDisposable
                 return;
             }
 
-            job = LaunchNative.CreateJob(killOnJobClose: true);
+            job = ProcessJob.Create(killOnClose: true);
             process = Process.Start(psi) ?? throw new InvalidOperationException("程序沒有啟動");
             var inJob = false;
             try
             {
-                inJob = job != null && LaunchNative.AssignProcessToJobObject(job, process.SafeHandle);
+                inJob = job != null && ProcessJob.Assign(job, process);
             }
             catch (Exception ex)
             {
@@ -301,7 +302,7 @@ internal sealed class RemoteExecRunner : IRemoteExecRunner, IDisposable
             {
                 try
                 {
-                    if (startedJob is not null && LaunchNative.TerminateJobObject(startedJob, 1))
+                    if (startedJob is not null && ProcessJob.Terminate(startedJob))
                         return;
                     started.Kill(entireProcessTree: true);
                 }
