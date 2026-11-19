@@ -1,6 +1,3 @@
-using System.Drawing;
-using System.Drawing.Imaging;
-using System.Runtime.InteropServices;
 using Myriagent.Remote;
 
 namespace Myriagent.RemoteDesk;
@@ -10,12 +7,11 @@ internal sealed record DeskTile(DeskRect Rect, byte[] Jpeg);
 
 /// <summary>
 /// 遠端桌面的影格編碼（docs/sync-protocol.md 14.16）：目前的畫面和上一張比，切成 <see cref="DeskRules.Tile"/> 的格子找變動的，
-/// 合併成矩形（<see cref="DeskRules.MergeTiles"/>、太高的切成幾段）各自壓成 JPEG。只在擷取執行緒用（GDI+ 的物件不跨執行緒）
+/// 合併成矩形（<see cref="DeskRules.MergeTiles"/>、太高的切成幾段）各自壓成 JPEG。只在擷取執行緒用（GDI+ 的物件不跨執行緒）。
+/// 壓成 JPEG 的那一步（Jpeg）各平台自己做：Windows 是 GDI+（DeskFrameEncoder.Win.cs），macOS 是 ImageIO（src/Myriagent.Mac）
 /// </summary>
-internal sealed class DeskFrameEncoder
+internal sealed partial class DeskFrameEncoder
 {
-    private static readonly ImageCodecInfo JpegCodec = ImageCodecInfo.GetImageEncoders().First(c => c.FormatID == ImageFormat.Jpeg.Guid);
-
     /// <summary>
     /// 變動的格子（以列為主）：<paramref name="previous"/> 是 null 或 <paramref name="key"/> 時全部算變動。兩個緩衝都是 BGRA、由上而下、寬 <paramref name="width"/>
     /// </summary>
@@ -70,28 +66,5 @@ internal sealed class DeskFrameEncoder
         }
 
         return tiles;
-    }
-
-    /// <summary>緩衝裡的一塊壓成 JPEG</summary>
-    public static byte[] Jpeg(byte[] bgra, int width, DeskRect rect, int quality)
-    {
-        using var bitmap = new Bitmap(rect.W, rect.H, PixelFormat.Format32bppRgb);
-        var data = bitmap.LockBits(new Rectangle(0, 0, rect.W, rect.H), ImageLockMode.WriteOnly, PixelFormat.Format32bppRgb);
-        try
-        {
-            var stride = width * 4;
-            for (var y = 0; y < rect.H; y++)
-                Marshal.Copy(bgra, (rect.Y + y) * stride + rect.X * 4, data.Scan0 + y * data.Stride, rect.W * 4);
-        }
-        finally
-        {
-            bitmap.UnlockBits(data);
-        }
-
-        using var parameters = new EncoderParameters(1);
-        parameters.Param[0] = new EncoderParameter(Encoder.Quality, (long)Math.Clamp(quality, 10, 95));
-        using var stream = new MemoryStream();
-        bitmap.Save(stream, JpegCodec, parameters);
-        return stream.ToArray();
     }
 }

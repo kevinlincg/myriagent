@@ -28,6 +28,8 @@
     <!-- workload 要求的 Xcode 小版本和機器上的差一點也能建置；真的不相容時編譯器自己會報錯 -->
     <ValidateXcodeVersion>false</ValidateXcodeVersion>
     <DefineConstants>$(DefineConstants);MYRIAGENT_MAC</DefineConstants>
+    <!-- Objective-C 執行階段的函式指標（UI/WebKitHttpsScheme.cs） -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
   <!-- 發佈時同時產出 Intel 與 Apple 晶片（一個通用的 .app）；平常建置只建這台的架構 -->
@@ -65,7 +67,6 @@
     <MacExcluded Include="..\Myriagent\Files\ThumbnailService.cs" />
     <MacExcluded Include="..\Myriagent\RemoteDesk\DeskCursorReader.cs" />
     <MacExcluded Include="..\Myriagent\RemoteDesk\DeskDiagnostics.cs" />
-    <MacExcluded Include="..\Myriagent\RemoteDesk\DeskFrameEncoder.cs" />
     <MacExcluded Include="..\Myriagent\RemoteDesk\DxgiDeskScreen.cs" />
     <MacExcluded Include="..\Myriagent\RemoteDesk\GdiDeskScreen.cs" />
     <MacExcluded Include="..\Myriagent\SystemStatus\CpuTemperatureReader.cs" />
