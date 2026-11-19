@@ -30,12 +30,18 @@ jobs:
           xcodebuild -version
           ls /Applications | grep -i xcode || true
           dotnet --info | head -20
+      # 在 src/Myriagent.Mac 底下執行：那裡的 global.json 指定用 .NET 10 的 SDK（它的 macOS workload 對應 Xcode 26；
+      # 機器上更新的 SDK 帶的 workload 會要求還沒出的 Xcode）
       - name: Install macOS workload
-        run: dotnet workload install macos
+        working-directory: src/Myriagent.Mac
+        run: |
+          dotnet --version
+          dotnet workload install macos
       - name: Build
         # shell: bash 才有 pipefail：沒有的話 tee 會蓋掉 dotnet build 的失敗
         shell: bash
-        run: dotnet build src/Myriagent.Mac/Myriagent.Mac.csproj -c Release -nologo -clp:NoSummary 2>&1 | tee build.log
+        working-directory: src/Myriagent.Mac
+        run: dotnet build Myriagent.Mac.csproj -c Release -nologo -clp:NoSummary 2>&1 | tee ../../build.log
       - name: Error summary
         if: failure()
         shell: bash
