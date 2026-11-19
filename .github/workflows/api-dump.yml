@@ -1,0 +1,29 @@
+# Development aid for the macOS port (fork only; not part of the pull request): prints the public API of selected
+# Microsoft.macOS types so the port can be written against the real binding names.
+name: api-dump
+on:
+  push:
+    branches: [ci/api-dump]
+jobs:
+  dump:
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - run: dotnet workload install macos
+      - shell: bash
+        run: |
+          set -euo pipefail
+          DLL=$(find "$(dirname "$(readlink -f "$(which dotnet)" 2>/dev/null || which dotnet)")" "$HOME/.dotnet" /usr/local/share/dotnet -path '*Microsoft.macOS.Ref*' -name Microsoft.macOS.dll 2>/dev/null | sort | tail -1)
+          echo "DLL=$DLL"
+          test -n "$DLL"
+          dotnet run --project tools/mac-api-dump -c Release -- "$DLL" tools/mac-api-dump/types.txt > api.txt
+          wc -l api.txt
+          grep -c '^## ' api.txt
+          grep 'NOT FOUND' api.txt || true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mac-api
+          path: api.txt
