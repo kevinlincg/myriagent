@@ -276,11 +276,11 @@ internal static partial class AgentHubRules
             return result;
 
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (Match m in LocalPathPattern().Matches(text))
+        foreach (Match m in (OperatingSystem.IsWindows() ? LocalPathPattern() : PosixPathPattern()).Matches(text))
         {
             var path = m.Value.TrimEnd('.', ',', '。', '，', '、', ';', '；', ':', '：', ')', '）', ']', '」', '』', '"', '\'', '`', '*');
-            path = path.Replace('/', '\\');
-            if (path.Length > 3 && seen.Add(path))
+            path = AgentAttachmentRules.NativeSeparators(path);
+            if (path.Length > AgentAttachmentRules.LocalRootLength && seen.Add(path))
                 result.Add(path);
         }
 
@@ -294,10 +294,10 @@ internal static partial class AgentHubRules
         if (string.IsNullOrEmpty(text))
             return result;
 
-        foreach (Match m in CodeSpanPathPattern().Matches(text))
+        foreach (Match m in (OperatingSystem.IsWindows() ? CodeSpanPathPattern() : PosixCodeSpanPathPattern()).Matches(text))
         {
-            var path = m.Groups[1].Value.Trim().Replace('/', '\\');
-            if (path.Length > 3 && !result.Contains(path, StringComparer.OrdinalIgnoreCase))
+            var path = AgentAttachmentRules.NativeSeparators(m.Groups[1].Value.Trim());
+            if (path.Length > AgentAttachmentRules.LocalRootLength && !result.Contains(path, StringComparer.OrdinalIgnoreCase))
                 result.Add(path);
         }
 
@@ -319,7 +319,7 @@ internal static partial class AgentHubRules
 
         var markdownTargets = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (Match m in MarkdownTargetPattern().Matches(text))
-            markdownTargets.Add(Uri.UnescapeDataString(m.Groups[1].Value).Replace('/', '\\'));
+            markdownTargets.Add(AgentAttachmentRules.NativeSeparators(Uri.UnescapeDataString(m.Groups[1].Value)));
 
         foreach (var path in ExtractCodeSpanPaths(text).Concat(ExtractLocalPaths(text)))
         {
@@ -359,8 +359,8 @@ internal static partial class AgentHubRules
             return result;
         foreach (Match m in RelativeMediaPattern().Matches(text))
         {
-            var path = m.Value.Replace('/', '\\');
-            if (path.StartsWith('\\') || !AgentAttachmentRules.IsDisplayableMedia(path) || result.Contains(path, StringComparer.OrdinalIgnoreCase))
+            var path = AgentAttachmentRules.NativeSeparators(m.Value);
+            if (path[0] is '\\' or '/' || !AgentAttachmentRules.IsDisplayableMedia(path) || result.Contains(path, StringComparer.OrdinalIgnoreCase))
                 continue;
             result.Add(path);
         }
@@ -678,6 +678,17 @@ internal static partial class AgentHubRules
 
     [GeneratedRegex(@"`([A-Za-z]:[\\/][^`\r\n]+)`")]
     private static partial Regex CodeSpanPathPattern();
+
+    /// <summary>
+    /// macOS／Linux 的本機路徑：「/」開頭、至少兩層（/Users/me/a.png；單獨一層的「/help」多半是指令不是檔案），延伸到的字元同 <see cref="LocalPathPattern"/>。
+    /// 前面接著英數字、「/」「:」「.」「~」等字元的不認（網址、相對路徑、~/ 的一部分）
+    /// </summary>
+    [GeneratedRegex(@"(?<![\w/\\:.~\-$@%&#=+])/[^/\s""'`<>|*?\r\n()（）「」『』【】。，、；！？：]+/[^\s""'`<>|*?\r\n()（）「」『』【】。，、；！？：]+")]
+    private static partial Regex PosixPathPattern();
+
+    /// <summary>反引號包住的 macOS／Linux 完整路徑（可含空白），例如 `/Users/me/My Files/chart.png`</summary>
+    [GeneratedRegex(@"`(/[^/`\r\n][^`\r\n]*)`")]
+    private static partial Regex PosixCodeSpanPathPattern();
 
     [GeneratedRegex(@"\]\(\s*<?([^)\s>]+)")]
     private static partial Regex MarkdownTargetPattern();

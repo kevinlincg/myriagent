@@ -226,7 +226,7 @@ internal static partial class AgentMarkdownRenderer
         }
 
         // 分隔字元一律換成單一「\」（照 CommonMark 寫成「\\」的路徑也是同一個檔案）
-        return AgentAttachmentRules.IsLocalDrivePath(value) ? Separators().Replace(value, "\\") : null;
+        return AgentAttachmentRules.IsLocalDrivePath(value) ? NormalizeSeparators(value) : null;
     }
 
     /// <summary>相對路徑 → 以工作資料夾解析成完整路徑；錨點、根目錄或 UNC 開頭、含「:」（網址、磁碟代號、資料流）的不認</summary>
@@ -288,11 +288,22 @@ internal static partial class AgentMarkdownRenderer
     /// </summary>
     internal static string? WrittenPathTarget(string? written)
     {
-        if (written == null || written.Length <= 3 || !AgentAttachmentRules.IsLocalDrivePath(written))
+        if (written == null || written.Length <= AgentAttachmentRules.LocalRootLength || !AgentAttachmentRules.IsLocalDrivePath(written))
             return null;
         var path = LineAnchor().Replace(LineSuffix().Replace(written, string.Empty), string.Empty);
-        return path.Length > 3 ? Separators().Replace(path, "\\") : null;
+        // macOS／Linux：單獨一層的「/help」「/model」多半是指令不是檔案，至少要兩層（/Users/me）才當成路徑
+        if (!OperatingSystem.IsWindows())
+        {
+            int second = path.Length > 1 ? path.IndexOf('/', 1) : -1;
+            if (second < 0 || second == path.Length - 1)
+                return null;
+        }
+        return path.Length > AgentAttachmentRules.LocalRootLength ? NormalizeSeparators(path) : null;
     }
+
+    /// <summary>分隔字元統一：Windows 一律換成單一「\」；macOS／Linux 的「\」是檔名的一部分，只把連續的「/」收成一個</summary>
+    private static string NormalizeSeparators(string path)
+        => OperatingSystem.IsWindows() ? Separators().Replace(path, "\\") : PosixSeparators().Replace(path, "/");
 
     /// <summary>
     /// 整段都是本機完整路徑的行內程式碼（`C:\out\報表 v2.xlsx`，可含空白）→ 連結目的地；
@@ -434,6 +445,9 @@ internal static partial class AgentMarkdownRenderer
 
     [GeneratedRegex(@"[\\/]+")]
     private static partial Regex Separators();
+
+    [GeneratedRegex(@"/+")]
+    private static partial Regex PosixSeparators();
 
     [GeneratedRegex(@"#L[0-9]+(?:C[0-9]+)?(?:-L?[0-9]+(?:C[0-9]+)?)?$")]
     private static partial Regex LineAnchor();

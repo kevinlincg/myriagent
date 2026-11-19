@@ -351,14 +351,32 @@ internal static class AgentAttachmentRules
 
     /// <summary>
     /// 本機磁碟路徑（「C:\」這種磁碟代號開頭的完整路徑）。UNC（\\server\share）一律不算：
-    /// 光是檢查檔案存不存在就會對該主機發起 SMB 連線、送出 Windows 登入雜湊，代理回覆裡的 UNC 路徑可能來自惡意網頁
+    /// 光是檢查檔案存不存在就會對該主機發起 SMB 連線、送出 Windows 登入雜湊，代理回覆裡的 UNC 路徑可能來自惡意網頁。
+    /// macOS／Linux 上是「/」開頭的完整路徑（<see cref="IsPosixAbsolutePath"/>）
     /// </summary>
     public static bool IsLocalDrivePath(string? path)
+        => OperatingSystem.IsWindows() ? IsWindowsDrivePath(path) : IsPosixAbsolutePath(path);
+
+    /// <summary>純函式：Windows 的本機磁碟路徑（磁碟代號＋「:」＋分隔字元開頭）</summary>
+    internal static bool IsWindowsDrivePath(string? path)
         => !string.IsNullOrEmpty(path)
            && path.Length >= 3
            && char.IsAsciiLetter(path[0])
            && path[1] == ':'
            && (path[2] == '\\' || path[2] == '/');
+
+    /// <summary>純函式：macOS／Linux 的完整路徑（「/」開頭；「//」開頭的不算，那在 Windows 上是 UNC 的另一種寫法）</summary>
+    internal static bool IsPosixAbsolutePath(string? path)
+        => !string.IsNullOrEmpty(path) && path[0] == '/' && (path.Length == 1 || path[1] != '/');
+
+    /// <summary>根目錄的長度：Windows 是「C:\」的 3，macOS／Linux 是「/」的 1。比它長才是指到根目錄底下的東西</summary>
+    public static int LocalRootLength => OperatingSystem.IsWindows() ? 3 : 1;
+
+    /// <summary>
+    /// 路徑的分隔字元統一成這台電腦的寫法：Windows 把「/」換成「\」；macOS／Linux 的「/」本來就是分隔字元，
+    /// 「\」則是檔名的一部分，所以照原樣
+    /// </summary>
+    public static string NativeSeparators(string path) => OperatingSystem.IsWindows() ? path.Replace('/', '\\') : path;
 
     public static string? GetMediaContentType(string path) => Path.GetExtension(path ?? string.Empty).ToLowerInvariant() switch
     {

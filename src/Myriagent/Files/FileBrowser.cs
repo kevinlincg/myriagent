@@ -14,7 +14,7 @@ internal sealed record FileSearchResult(string RelativePath, string FullPath, st
 /// 對話內的檔案瀏覽與 @ 檔案提示：列資料夾（資料夾在前、自然排序）、在工作資料夾建檔案索引（背景執行緒、快取 60 秒、略過 .git／node_modules／obj 等，
 /// bin／packages 只在 .NET 專案旁略過），以子序列模糊比對排序。只認本機磁碟路徑（UNC 會對外發 SMB 連線，一律不列）。
 /// </summary>
-internal static class FileBrowser
+internal static partial class FileBrowser
 {
     public const int MaxEntries = 3000;
     public const int MaxIndexedFiles = 20_000;
@@ -128,12 +128,6 @@ internal static class FileBrowser
             return null;
         }
     }
-
-    /// <summary>自然排序（檔名裡的數字依數值比：img2 在 img10 前面）</summary>
-    public static int NaturalCompare(string? a, string? b) => StrCmpLogicalW(a ?? string.Empty, b ?? string.Empty);
-
-    [DllImport("shlwapi.dll", CharSet = CharSet.Unicode, ExactSpelling = true)]
-    private static extern int StrCmpLogicalW(string x, string y);
 
     /// <summary>@ 檔案提示：在根目錄的檔案索引中模糊搜尋（索引過期就在背景重建，這次先用舊的）</summary>
     public static async Task<List<FileSearchResult>> SearchAsync(string root, string query, CancellationToken ct)
