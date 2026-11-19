@@ -18,18 +18,8 @@ namespace Myriagent.UI;
 /// /thumb（Windows 外殼縮圖，背景產生不卡 UI）、/m/ 與 /t/（複本的圖片影片與縮圖，經伺服器向擁有者電腦要）、把網頁指令轉給中樞、攔下站外導覽改用預設瀏覽器開。
 /// 所有視窗共用同一個 WebView2 環境（同一個瀏覽器程序，省記憶體）。
 /// </summary>
-internal class AgentWebView : IAgentView
+internal partial class AgentWebView : IAgentView
 {
-    /// <summary>網頁的內容安全政策：只執行本頁腳本、圖片與影片只從本頁來源（含 /media、/thumb）載入</summary>
-    public const string ContentSecurityPolicy =
-        "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; " +
-        "font-src 'self' data:; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; object-src 'none'";
-
-    /// <summary>/media 開檔最多等多久：網路磁碟離線時開檔會卡到 SMB 逾時（約 40 秒），先回 404，晚到的檔案直接關掉</summary>
-    private static readonly TimeSpan MediaOpenTimeout = TimeSpan.FromSeconds(10);
-
-    /// <summary>複本的 /m/、/t/ 最多等多久（來源自己 20 秒逾時，這裡是保險）</summary>
-    private static readonly TimeSpan ReplicaFetchTimeout = TimeSpan.FromSeconds(25);
 
     private static Task<CoreWebView2Environment>? sharedEnvironment;
 
@@ -103,20 +93,6 @@ internal class AgentWebView : IAgentView
 
     /// <summary>這個檢視把控制項藏起來了（最小化，或沒有人看得到畫面）</summary>
     private bool hiddenByState;
-
-    /// <summary>沒有人看得到這個工作階段的畫面（鎖定、螢幕關閉；ScreenPresence 判斷，AppController 轉進來）。UI 執行緒</summary>
-    internal static bool ScreenUnseen { get; private set; }
-
-    private static event Action? ScreenUnseenChanged;
-
-    /// <summary>畫面看不看得到變了：每個視窗的網頁跟著停畫或恢復（UI 執行緒）</summary>
-    internal static void SetScreenUnseen(bool unseen)
-    {
-        if (ScreenUnseen == unseen)
-            return;
-        ScreenUnseen = unseen;
-        ScreenUnseenChanged?.Invoke();
-    }
 
     /// <summary>
     /// 視窗最小化時讓網頁知道看不到：WebView2 是子視窗，收不到最小化，頁面的 document.hidden 一直是 false，
@@ -319,54 +295,6 @@ internal class AgentWebView : IAgentView
         _ = ServeInBackgroundAsync(e, "取複本的媒體", work, ReplicaFetchTimeout);
     }
 
-    /// <summary>
-    /// 複本路由要做的事（UI 執行緒呼叫；<paramref name="sourceFor"/> 是中樞的 <see cref="AgentHub.ReplicaMediaFor"/>）：
-    /// 不合格的路由、沒有來源回 null（404，來源不呼叫）；否則回在背景執行的準備工作
-    /// </summary>
-    internal static Func<Task<PreparedResponse?>>? RouteReplica(ReplicaRoute route, string? rangeHeader, Func<string, string, IReplicaMediaSource?> sourceFor)
-    {
-        if (route.Kind != ReplicaRouteKind.Valid || route.Key is not { } key || route.Purpose is not { } purpose
-            || sourceFor(key, purpose) is not { } source)
-            return null;
-        var range = purpose == MediaPurposes.Media ? rangeHeader : null;
-        return () => PrepareReplicaAsync(source, key, purpose, route.Size, range, CancellationToken.None);
-    }
-
-    /// <summary>向來源要內容並準備回應（背景執行緒）；來源回 null、狀態碼或標頭不合格回 null（404）</summary>
-    internal static async Task<PreparedResponse?> PrepareReplicaAsync(IReplicaMediaSource source, string key, string purpose, int? size, string? rangeHeader,
-        CancellationToken ct)
-    {
-        if (await source.FetchAsync(key, purpose, size, rangeHeader, ct).ConfigureAwait(false) is not { } reply
-            || ReplicaMediaRouteRules.Headers(reply, purpose == MediaPurposes.Media) is not { } headers)
-            return null;
-        return new PreparedResponse(new MemoryStream(reply.Body, writable: false), reply.Status, ReplicaMediaRouteRules.ReasonPhrase(reply.Status)!, headers);
-    }
-
-    /// <summary>開檔並依 Range 準備 200／206 回應（在背景執行緒呼叫）；找不到、是資料夾、沒有權限回 null（404）</summary>
-    internal static PreparedResponse? PrepareMedia(string path, string contentType, string? rangeHeader)
-    {
-        FileStream? stream = null;
-        try
-        {
-            stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete, 1 << 16);
-            long length = stream.Length;
-            if (RangeRules.Parse(rangeHeader, length) is { } r)
-            {
-                long count = r.End - r.Start + 1;
-                return new PreparedResponse(new SubStream(stream, r.Start, count), 206, "Partial Content",
-                    $"Content-Type: {contentType}\r\nContent-Length: {count}\r\nContent-Range: bytes {r.Start}-{r.End}/{length}\r\nAccept-Ranges: bytes\r\nCache-Control: no-cache\r\nX-Content-Type-Options: nosniff");
-            }
-
-            return new PreparedResponse(stream, 200, "OK",
-                $"Content-Type: {contentType}\r\nContent-Length: {length}\r\nAccept-Ranges: bytes\r\nCache-Control: no-cache\r\nX-Content-Type-Options: nosniff");
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
-        {
-            stream?.Dispose();
-            return null;
-        }
-    }
-
     /// <summary>縮圖在背景執行緒產生，完成後回 UI 執行緒建立回應</summary>
     private void ServeThumbnail(CoreWebView2WebResourceRequestedEventArgs e, string? path, int size)
     {
@@ -432,32 +360,8 @@ internal class AgentWebView : IAgentView
         }
     }
 
-    /// <summary>在背景準備好的回應（UI 執行緒只負責把它變成 WebView2 的回應物件）</summary>
-    internal sealed record PreparedResponse(Stream? Content, int StatusCode, string ReasonPhrase, string Headers);
-
     private CoreWebView2WebResourceResponse NotFound()
         => environment!.CreateWebResourceResponse(null, 404, "Not Found", "Content-Type: text/plain");
-
-    internal static string? GetQueryValue(Uri uri, string key)
-    {
-        foreach (var part in uri.Query.TrimStart('?').Split('&', StringSplitOptions.RemoveEmptyEntries))
-        {
-            int eq = part.IndexOf('=');
-            var name = eq < 0 ? part : part[..eq];
-            if (!name.Equals(key, StringComparison.OrdinalIgnoreCase))
-                continue;
-            var value = eq < 0 ? string.Empty : part[(eq + 1)..];
-            try
-            {
-                return Uri.UnescapeDataString(value.Replace('+', ' '));
-            }
-            catch (UriFormatException)
-            {
-                return null;
-            }
-        }
-        return null;
-    }
 
     // ───────────────────────────── 訊息與導覽 ─────────────────────────────
 
@@ -515,11 +419,6 @@ internal class AgentWebView : IAgentView
         if (e.PermissionKind == CoreWebView2PermissionKind.Microphone && IsAppOrigin(e.Uri))
             e.State = CoreWebView2PermissionState.Allow;
     }
-
-    /// <summary>是 app 自己的頁面（<c>https://myriagent.local</c>，不分大小寫）；其他來源（不該出現）不給權限</summary>
-    internal static bool IsAppOrigin(string? uri)
-        => Uri.TryCreate(uri, UriKind.Absolute, out var parsed)
-           && string.Equals(parsed.GetLeftPart(UriPartial.Authority), AgentMarkdownRenderer.Origin, StringComparison.OrdinalIgnoreCase);
 
     private void OnNewWindowRequested(object? sender, CoreWebView2NewWindowRequestedEventArgs e)
     {
