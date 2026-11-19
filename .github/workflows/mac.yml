@@ -46,6 +46,7 @@ jobs:
       - name: Smoke run
         shell: bash
         run: |
+          set +e
           set -uo pipefail
           APP=$(find src/Myriagent.Mac/bin/Release -maxdepth 4 -name '*.app' | head -1)
           echo "APP=$APP"
@@ -60,11 +61,13 @@ jobs:
           PID=$!
           for i in $(seq 1 70); do
             if ! kill -0 $PID 2>/dev/null; then break; fi
-            if [ "$i" = "12" ]; then screencapture -x screen.png || true; fi
+            if [ "$i" = "6" ]; then screencapture -x screen-06s.png || true; fi
+            if [ "$i" = "12" ]; then screencapture -x screen-12s.png || true; fi
             sleep 1
           done
-          if kill -0 $PID 2>/dev/null; then echo "app still running after 70s: killing"; kill -9 $PID; fi
-          wait $PID; echo "exit code: $?"
+          if kill -0 $PID 2>/dev/null; then echo "app still running after 70s: killing" | tee smoke-run.txt; sample $PID 2 -file sample.txt >/dev/null 2>&1; head -80 sample.txt; kill -9 $PID; fi
+          wait $PID
+          echo "exit code: $?"
           echo "--- stdout/stderr"; tail -60 app-stdout.log || true
           echo "--- app log"; cat "$DATA"/logs/*.log 2>/dev/null | tail -80 || true
           echo "--- smoke.json"; cat smoke.json
@@ -80,6 +83,10 @@ jobs:
           if problems: sys.exit('SMOKE FAILED: ' + '; '.join(problems))
           print('SMOKE OK:', r.get('title'), r.get('nodes'), 'nodes')
           PY
+          SMOKE=$?
+          # app 要自己結束（冒煙測試寫完結果就走結束流程）：被我們強制結束的不算過
+          if [ "$SMOKE" != "0" ]; then exit 1; fi
+          if grep -q 'still running after' smoke-run.txt 2>/dev/null; then echo "SMOKE FAILED: app did not exit by itself"; exit 1; fi
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -87,7 +94,7 @@ jobs:
           if-no-files-found: ignore
           path: |
             smoke.json
-            screen.png
+            screen-*.png
             app-stdout.log
       - name: Error summary
         if: failure()
