@@ -88,6 +88,13 @@ internal static class ExistingFolderRules
     }
 
     /// <summary>
+    /// 這種 CLI 能不能把現有的設定資料夾加成帳戶：要能建隔離帳戶的種類，但 Antigravity 不行——agy 的登入跟著整個 HOME（鑰匙圈）走，
+    /// 不是一個設定資料夾（macOS 的隔離帳戶是 app 建的家，AntigravityHomeRules）
+    /// </summary>
+    public static bool Supported(AgentProvider provider)
+        => provider != AgentProvider.Antigravity && AccountRules.SupportsIsolatedAccounts(provider);
+
+    /// <summary>
     /// 這個資料夾（已經過 <see cref="Clean"/>）能不能加成帳戶。defaultDirectories＝「本機預設」帳戶用的資料夾（CLI 自己的預設位置與這次啟動實際用的）；
     /// usedDirectories＝清單裡同一種 CLI 的帳戶實際用的資料夾；forbiddenDirectories＝一看就不該用的地方（使用者資料夾本身、app 自己的資料夾、
     /// 別種 CLI 的設定資料夾；磁碟的根目錄這裡自己判斷）；looksLikeConfig＝資料夾裡有這種 CLI 用過的痕跡（<see cref="Markers"/>）或是空的
@@ -96,7 +103,7 @@ internal static class ExistingFolderRules
     public static ExistingFolderCheck Check(AgentProvider provider, string? directory, Func<string, bool> directoryExists,
         IEnumerable<string> defaultDirectories, IEnumerable<string> usedDirectories, IEnumerable<string> forbiddenDirectories, Func<string, bool> looksLikeConfig)
     {
-        if (!AccountRules.SupportsIsolatedAccounts(provider))
+        if (!Supported(provider))
             return ExistingFolderCheck.Unsupported;
         if (string.IsNullOrWhiteSpace(directory))
             return ExistingFolderCheck.Empty;
@@ -207,7 +214,7 @@ internal static class ExistingFolderRules
     public static IReadOnlyList<string> Find(AgentProvider provider, IEnumerable<string> homeDirectories, Func<string, bool> entryExists,
         IEnumerable<string> defaultDirectories, IEnumerable<string> usedDirectories)
     {
-        if (!AccountRules.SupportsIsolatedAccounts(provider))
+        if (!Supported(provider))
             return Array.Empty<string>();
         var excluded = defaultDirectories.Concat(usedDirectories).ToList();
         return homeDirectories

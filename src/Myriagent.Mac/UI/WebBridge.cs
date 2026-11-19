@@ -104,8 +104,9 @@ internal static class WebBridge
           // 介面網頁寫的是 Windows 的說法：排程頁的「工作排程器」在這裡是 launchd 與 crontab，「檔案總管」是 Finder
           const WORDS = [['讀不到工作排程器', '讀不到這台的排程'], ['工作排程器記的上次', '系統記的上次'], ['工作排程器', 'launchd'],
             ['代理在對話裡建立的 Windows 排程', '代理在對話裡建立的排程（launchd 的工作、crontab）'], ['Windows 排程', '排程（launchd、crontab）'],
-            ['完整定義（XML）', '完整定義'], ['檔案總管', 'Finder']];
-          const NEEDLE = /Ctrl\+|工作排程器|Windows 排程|完整定義（XML）|檔案總管/;
+            ['完整定義（XML）', '完整定義'], ['檔案總管', 'Finder'], ['Windows 認證管理員', '系統鑰匙圈'],
+            ['、Codex 或 Grok 訂閱（使用獨立的設定資料夾），或這台電腦的 Antigravity', '、Codex、Grok 或 Antigravity 訂閱（使用獨立的設定資料夾）']];
+          const NEEDLE = /Ctrl\+|工作排程器|Windows 排程|完整定義（XML）|檔案總管|Windows 認證管理員|或這台電腦的 Antigravity/;
           const fix = (text) => {
             let next = text.replace(/(?<!終端機的 )Ctrl\+/g, '⌘');
             for (const [from, to] of WORDS) if (next.includes(from)) next = next.split(from).join(to);

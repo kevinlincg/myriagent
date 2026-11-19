@@ -675,8 +675,32 @@ internal sealed class AntigravityTranscriptReader
 
     public int MaxSeenStepIndex => maxSeenStepIndex;
 
+    /// <summary>
+    /// 對話的逐字稿：一般在使用者資料夾的 agy 資料夾；macOS 的 agy 隔離帳戶（Accounts.AntigravityHomeRules）在帳戶自己的家裡——
+    /// 使用者資料夾裡沒有這個對話的 brain 資料夾時，依序找各帳戶的家（對話 id 是 UUID，不會撞）。都沒有就回使用者資料夾的路徑
+    /// </summary>
     public static string? DefaultResolveTranscriptPath(string conversationId)
-        => AntigravityStreamRules.ResolveTranscriptPath(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), conversationId);
+    {
+        var path = AntigravityStreamRules.ResolveTranscriptPath(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), conversationId);
+        if (path == null || OperatingSystem.IsWindows()
+            || Directory.Exists(AntigravityStreamRules.ResolveBrainDirectory(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), conversationId)))
+            return path;
+        try
+        {
+            if (!Directory.Exists(AppPaths.AccountsDirectory))
+                return path;
+            foreach (var account in Directory.EnumerateDirectories(AppPaths.AccountsDirectory))
+            {
+                var home = Path.Combine(account, global::Myriagent.Accounts.AntigravityHomeRules.FolderName);
+                if (Directory.Exists(AntigravityStreamRules.ResolveBrainDirectory(home, conversationId)))
+                    return AntigravityStreamRules.ResolveTranscriptPath(home, conversationId);
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+        }
+        return path;
+    }
 
     /// <summary>綁定對話 ID（變更時清空先前狀態）</summary>
     public void BindConversation(string? id)

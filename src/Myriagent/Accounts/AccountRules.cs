@@ -153,7 +153,8 @@ internal static class AccountRules
     /// <summary>
     /// 設定子程序環境：剝除 API Key、剝除父 Claude session 帶來的 CLAUDE*／CLAUDECODE（父 session 的 effort、訊息通道、session id）
     /// 與父 agy 工作階段的 ANTIGRAVITY_*，再依帳戶指定設定資料夾。系統預設帳戶保留繼承的 CLAUDE_CONFIG_DIR／CODEX_HOME（使用者自己設的）。
-    /// Antigravity 只有系統預設帳戶（登入存在 Windows 認證管理員，一台電腦一個），另剝除 Gemini API Key 類變數，並關掉 agy 的背景自動更新；
+    /// Antigravity 另剝除 Gemini API Key 類變數，並關掉 agy 的背景自動更新；Windows 只有系統預設帳戶（登入存在認證管理員，一台電腦一個），
+    /// macOS 的隔離帳戶讓 agy 以帳戶自己的「家」當 HOME（AntigravityHomeRules）；
     /// Grok 另剝除 xAI API Key 與指向別處設定的變數，一律關掉 grok 的背景自動更新（換版由 app 協調），隔離帳戶以 GROK_HOME 指定資料夾
     /// </summary>
     public static void ApplyEnvironment(AgentAccount account, IDictionary<string, string?> env)
@@ -183,7 +184,12 @@ internal static class AccountRules
                 env["CODEX_HOME"] = account.ConfigDirectory;
                 break;
             case AgentProvider.Antigravity:
-                // 沒有隔離帳戶（AccountManager 不會建立）；萬一清單被手動改出來，照系統預設帳戶執行
+                // Windows 沒有隔離帳戶（AccountManager 不會建立）；萬一清單被手動改出來，照系統預設帳戶執行
+                if (AntigravityHomeRules.IsShadowed(account))
+                {
+                    AntigravityHome.Prepare(account.ConfigDirectory!);
+                    AntigravityHomeRules.ApplyEnvironment(env, account.ConfigDirectory!);
+                }
                 break;
             case AgentProvider.Grok:
                 env[GrokAcpRules.HomeVariable] = account.ConfigDirectory;
@@ -221,7 +227,10 @@ internal static class AccountRules
         env[ClaudeStreamRules.DisableAutoUpdaterVariable] = "1";
     }
 
-    /// <summary>帳戶實際使用的設定資料夾（Antigravity 是 %USERPROFILE%\.gemini\antigravity-cli；Grok 的系統預設帳戶是繼承的 GROK_HOME 或 %USERPROFILE%\.grok）</summary>
+    /// <summary>
+    /// 帳戶實際使用的設定資料夾（Antigravity 是 %USERPROFILE%\.gemini\antigravity-cli，macOS 的隔離帳戶是它自己的家裡的那一個；
+    /// Grok 的系統預設帳戶是繼承的 GROK_HOME 或 %USERPROFILE%\.grok）
+    /// </summary>
     public static string ResolveConfigDirectory(AgentAccount account)
     {
         switch (account.Provider)
@@ -238,7 +247,9 @@ internal static class AccountRules
             case AgentProvider.Codex:
                 return account.IsSystemDefault ? CodexConfigRules.ResolveHome(null) : account.ConfigDirectory!;
             case AgentProvider.Antigravity:
-                return AntigravityStreamRules.ResolveHome(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile));
+                return AntigravityHomeRules.IsShadowed(account)
+                    ? AntigravityHomeRules.ConfigDirectory(account.ConfigDirectory!)
+                    : AntigravityStreamRules.ResolveHome(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile));
             case AgentProvider.Grok:
             {
                 if (!account.IsSystemDefault)
@@ -261,7 +272,7 @@ internal static class AccountRules
 
     /// <summary>
     /// 登入憑證檔：Claude 的 .credentials.json、Codex 與 Grok 的 auth.json（監看它的變化以重新檢查狀態與用量，不讀內容）；
-    /// Antigravity 的登入存在 Windows 認證管理員，沒有檔案可監看，回 null
+    /// Antigravity 的登入存在 Windows 認證管理員或 macOS 的鑰匙圈，沒有檔案可監看，回 null
     /// </summary>
     public static string? GetCredentialFile(AgentAccount account) => account.Provider switch
     {
@@ -663,11 +674,14 @@ internal static class AccountRules
         _ => throw new ArgumentOutOfRangeException(nameof(provider), provider, null),
     };
 
-    /// <summary>能不能新增隔離帳戶（各自的設定資料夾與登入）：Antigravity 的登入存在認證管理員的固定名稱，一台電腦只能有一個</summary>
-    public static bool SupportsIsolatedAccounts(AgentProvider provider) => provider switch
+    /// <summary>
+    /// 能不能新增隔離帳戶（各自的設定資料夾與登入）：Windows 的 Antigravity 登入存在認證管理員的固定名稱，一台電腦只能有一個；
+    /// macOS 的 agy 登入跟著 HOME 走，每個帳戶給它自己的家（AntigravityHomeRules）。windows＝null 時看實際的作業系統
+    /// </summary>
+    public static bool SupportsIsolatedAccounts(AgentProvider provider, bool? windows = null) => provider switch
     {
         AgentProvider.Claude or AgentProvider.Codex or AgentProvider.Grok => true,
-        AgentProvider.Antigravity => false,
+        AgentProvider.Antigravity => !(windows ?? OperatingSystem.IsWindows()),
         _ => throw new ArgumentOutOfRangeException(nameof(provider), provider, null),
     };
 
@@ -684,7 +698,7 @@ internal static class AccountRules
 
     /// <summary>
     /// 隔離帳戶能不能共用系統預設帳戶的設定（全域指示、記憶、MCP、skills、rules；SharedCustomizations）：
-    /// Claude、Codex、Grok 都支援隔離帳戶與對應預設資料夾共用；Antigravity 沒有隔離帳戶
+    /// Claude、Codex、Grok 都支援隔離帳戶與對應預設資料夾共用；Antigravity 沒有這個開關（macOS 的隔離帳戶一律連結共用，AntigravityHomeRules）
     /// </summary>
     public static bool SupportsSharedCustomizations(AgentProvider provider) => provider switch
     {

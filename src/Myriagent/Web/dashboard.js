@@ -887,7 +887,7 @@ function remoteOnlyMenu(a, anchor, at) {
  * Antigravity 一台只有一個 agy 登入，從目錄在這台登入會換掉原本的登入（宿主也回不支援，設計 2026-10-22-grok-antigravity-sync 5.2）
  */
 function claimableHere(a) {
-  return !!providerInfo(a.provider).isolatedAccounts;
+  return !!providerInfo(a.provider).isolatedAccounts && a.provider !== 'Antigravity';
 }
 
 const AGY_ONE_LOGIN = '這台的 agy 沒有登入這個帳號。agy 一台電腦只有一個登入，要在這台用這個帳號，請在這台的 agy 換成它。';
@@ -905,8 +905,10 @@ async function confirmLogout(a) {
     message: '登出後要重新登入才能用這個帳戶送訊息。' + (s.running ? '目前有 ' + s.running + ' 個對話執行中，會無法繼續。' : ''),
     // 本機預設帳戶用的是使用者原本的設定資料夾：登出的是這台電腦上的 CLI 本身，不只是 app 裡的帳戶。
     // agy 沒有登出指令：宿主開 agy 視窗，請使用者在裡面輸入 /logout
-    detail: !info.isolatedAccounts
-      ? '會開啟 agy 視窗，請在視窗裡輸入 /logout 後按 Enter，再關閉視窗。這台電腦的 agy 登入存在 Windows 認證管理員，終端機等其他地方的 agy 也會一起登出。'
+    detail: a.provider === 'Antigravity'
+      ? '會開啟 agy 視窗，請在視窗裡輸入 /logout 後按 Enter，再關閉視窗。' + (a.isSystemDefault
+        ? '這台電腦的 agy 登入存在 Windows 認證管理員，終端機等其他地方的 agy 也會一起登出。'
+        : '只登出這個帳戶自己的 agy，這台電腦原本的 agy 登入不受影響。')
       : a.isSystemDefault
         ? '這個帳戶使用這台電腦預設的設定資料夾' + (a.configDirectory ? '（' + a.configDirectory + '）' : '') + '，終端機、VS Code 等其他地方的 '
           + info.name + ' 也會一起登出。'
@@ -914,7 +916,7 @@ async function confirmLogout(a) {
           ? '這個帳戶使用你原有的設定資料夾' + (a.configDirectory ? '（' + a.configDirectory + '）' : '') + '，終端機等其他地方用同一個資料夾的 '
             + info.name + ' 也會一起登出。'
           : null,
-    confirmLabel: info.isolatedAccounts ? '登出' : '開啟 agy 視窗',
+    confirmLabel: a.provider === 'Antigravity' ? '開啟 agy 視窗' : '登出',
   });
   if (r.ok) post({ cmd: 'accountLogout', accountId: a.id });
 }
@@ -982,10 +984,12 @@ export function openAddAccount() {
   const folder = h('input', { type: 'text', class: 'input', placeholder: '留空＝建立新的資料夾並登入', autocomplete: 'off', spellcheck: 'false' });
   const found = h('div', { class: 'add-folders' });
   const folderField = h('div', { class: 'field' }, h('div', { class: 'field-label', text: '使用現有的設定資料夾（選填）' }), folder, found);
-  const chosenFolder = () => (providerInfo(provider).isolatedAccounts ? folder.value.trim() : '');
+  // agy 的登入跟著整個家（macOS 的鑰匙圈）走，不是一個設定資料夾：不能用現有的資料夾（宿主也不接受）
+  const folderAllowed = (p) => !!providerInfo(p).isolatedAccounts && p !== 'Antigravity';
+  const chosenFolder = () => (folderAllowed(provider) ? folder.value.trim() : '');
   function renderFound() {
     found.textContent = '';
-    const list = providerInfo(provider).isolatedAccounts ? folderChoices(providerInfo(provider), state.accounts) : [];
+    const list = folderAllowed(provider) ? folderChoices(providerInfo(provider), state.accounts) : [];
     if (list.length) found.append(h('span', { class: 'field-hint', text: '這台電腦上找到的：' }));
     for (const f of list) {
       const b = h('button', { type: 'button', class: 'btn sm', text: f.display, title: f.path });
@@ -1007,14 +1011,16 @@ export function openAddAccount() {
   function sync() {
     for (const b of provs.children) { const on = b.dataset.p === provider; b.classList.toggle('on', on); b.setAttribute('aria-checked', String(on)); b.style.setProperty('--acc', on ? color : (DEFAULT_COLORS[b.dataset.p] || '#8A94A6')); }
     const dir = chosenFolder();
-    folderField.hidden = !providerInfo(provider).isolatedAccounts;
+    folderField.hidden = !folderAllowed(provider);
     name.placeholder = (dir && folderLabel(provider, dir)) || defName(provider);
     preview.style.setProperty('--acc', color);
     preview.textContent = (name.value.trim() || name.placeholder);
     ok.textContent = dir ? '加入' : '新增並登入';
     note.textContent = !providerInfo(provider).isolatedAccounts
       ? '使用這台電腦 agy 的登入（存在 Windows 認證管理員，一台電腦只能有一個）。新增後會檢查登入狀態，還沒登入就開啟 agy 視窗登入。'
-      : dir
+      : provider === 'Antigravity'
+        ? '這個帳戶的 agy 有自己的登入與對話紀錄，不影響這台電腦原本的 agy 登入；Skills、設定照常共用。新增後會開啟 agy 視窗登入。'
+        : dir
         ? '直接使用這個資料夾：登入、Skills、外掛、記憶和 CLI 對話紀錄都是它原本的，和你在終端機用的是同一份。不會搬動它，移除帳戶時也不會刪除它。'
         : '會建立一個獨立的設定資料夾給這個帳戶，不影響這台電腦原本的登入。新增後會立刻開始登入流程。';
   }

@@ -18,7 +18,7 @@ internal sealed record CliRunResult(int ExitCode, string Stdout, string Stderr, 
 }
 
 /// <summary>不開視窗執行 CLI 子指令（版本、登入狀態、登出、更新），收集輸出；逾時結束程序樹</summary>
-internal static class CliRunner
+internal static partial class CliRunner
 {
     /// <param name="timeout">Timeout.InfiniteTimeSpan＝不設時限（等程序自己結束）</param>
     /// <param name="killWithApp">false＝不加入 app 的工作物件，app 結束時不會跟著被結束（npm 安裝／更新半途被砍會讓 CLI 從電腦上消失）</param>
@@ -152,20 +152,5 @@ internal static class CliRunner
         }
     }
 
-    /// <summary>開新的主控台視窗執行（登入、官方安裝程式這類要使用者看到或操作的流程）；回傳程序供呼叫端等它結束</summary>
-    public static Process StartConsole(AgentLauncher launcher, IEnumerable<string> args, Action<IDictionary<string, string?>>? configureEnvironment, string? title = null)
-    {
-        var psi = new ProcessStartInfo
-        {
-            FileName = launcher.FileName,
-            UseShellExecute = false,
-            CreateNoWindow = false,
-        };
-        foreach (var a in launcher.PrefixArguments.Concat(args))
-            psi.ArgumentList.Add(a);
-        configureEnvironment?.Invoke(psi.Environment);
-        var process = Process.Start(psi) ?? throw new InvalidOperationException($"無法開啟{title ?? "主控台"}視窗");
-        process.EnableRaisingEvents = true;
-        return process;
-    }
+    // 開新的主控台視窗執行（StartConsole）在 CliRunner.Console.Win.cs；macOS 開「終端機」視窗
 }

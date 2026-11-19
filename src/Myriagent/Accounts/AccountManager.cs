@@ -432,7 +432,7 @@ internal sealed class AccountManager : IDisposable
                 var id = Path.GetFileName(dir);
                 if (!IsAccountFolderName(id) || File.Exists(dir + PendingDeleteSuffix))
                     continue;
-                foreach (var provider in AgentProviders.All.Where(AccountRules.SupportsIsolatedAccounts))
+                foreach (var provider in AgentProviders.All.Where(p => AccountRules.SupportsIsolatedAccounts(p)))
                 {
                     var config = Path.Combine(dir, IsolatedFolderName(provider));
                     if (!Directory.Exists(config))
@@ -469,6 +469,7 @@ internal sealed class AccountManager : IDisposable
         AgentProvider.Claude => "claude",
         AgentProvider.Codex => "codex",
         AgentProvider.Grok => "grok",
+        AgentProvider.Antigravity => AntigravityHomeRules.FolderName,
         _ => throw new ArgumentOutOfRangeException(nameof(provider), provider, "這種代理沒有隔離帳戶"),
     };
 
@@ -481,6 +482,9 @@ internal sealed class AccountManager : IDisposable
         // 使用者原有的資料夾（AddExisting）不動：config.toml 是他自己的
         if (account.Provider == AgentProvider.Grok && !account.IsSystemDefault && !account.ExistingFolder && !string.IsNullOrWhiteSpace(account.ConfigDirectory))
             GrokAcpRules.EnsureIsolatedHome(account.ConfigDirectory);
+        // macOS 的 agy 隔離帳戶：家裡的鑰匙圈、連結、shell 小腳本（每次跑 agy 前也會整理）
+        if (AntigravityHomeRules.IsShadowed(account))
+            AntigravityHome.Prepare(account.ConfigDirectory!);
     }
 
     /// <summary>app 建立的帳戶資料夾名稱（帳戶 Id：32 碼十六進位）</summary>
@@ -633,7 +637,7 @@ internal sealed class AccountManager : IDisposable
     /// </summary>
     public IReadOnlyList<string> FindExistingFolders(AgentProvider provider)
     {
-        if (!AccountRules.SupportsIsolatedAccounts(provider))
+        if (!ExistingFolderRules.Supported(provider))
             return Array.Empty<string>();
         var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
         try
@@ -919,7 +923,12 @@ internal sealed class AccountManager : IDisposable
     /// 刪除帳戶資料夾：Claude 外掛市集是 git clone，含唯讀的物件檔，一併清掉唯讀屬性再刪（DirectoryRemover，不跟進連結）；
     /// 被占用時（剛結束的 CLI 程序還沒放開檔案）每 500 毫秒重試，最多約 5 秒
     /// </summary>
-    private static bool TryDeleteDirectory(string path) => DirectoryRemover.TryDelete(path, attempts: 10, retryDelayMs: 500);
+    private static bool TryDeleteDirectory(string path)
+    {
+        // macOS 的 agy 帳戶：家裡的連結指向真正的家，先拿掉連結本身再刪資料夾
+        AntigravityHome.RemoveLinks(path);
+        return DirectoryRemover.TryDelete(path, attempts: 10, retryDelayMs: 500);
+    }
 
     private static void TryDeleteFile(string path)
     {
