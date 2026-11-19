@@ -6,6 +6,7 @@ using CoreGraphics;
 using Foundation;
 using Myriagent.Accounts;
 using Myriagent.Agents;
+using Myriagent.Background;
 using Myriagent.Cli;
 using Myriagent.Core;
 using Myriagent.Files;
@@ -123,6 +124,10 @@ internal sealed class AppController : IAgentHost, IAppUpdateShell, IWindowHost, 
         Hub.AttachSystemMonitor(systemMonitor);
         Hub.AttachGitStatus(new GitStatusReader());
         Hub.AttachGitTurnReader(new GitTurnReader());
+        // 回合結束後代理開的程式還在跑：帳戶卡與對話標頭的「另開的程式」
+        Hub.AttachBackgroundPrograms(BackgroundProgramMonitor.CreateDefault());
+        // 對話框的燈號（資料流、網路、硬碟）與輸入框下方的 CPU 波形
+        Hub.AttachActivity(new ActivitySampler());
         Hub.AttachHealth(new HealthScanner(new HealthMachine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile))));
         Hub.AttachScheduleTranscripts(Hub.DefaultTranscriptRoots);
         Hub.AttachVoice(voiceTranscriber);

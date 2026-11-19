@@ -35,6 +35,70 @@ internal static class MacProcessTable
         return table;
     }
 
+    /// <summary>kinfo_proc 的大小與欄位位移：2026-11-19 在 macOS 26.5（x86_64）以 C 的 offsetof 實測</summary>
+    private const int KinfoSize = 648;
+    private const int KinfoStartSecondsOffset = 0;
+    private const int KinfoStartMicrosecondsOffset = 8;
+    private const int KinfoPidOffset = 40;
+    private const int KinfoNameOffset = 243;
+    private const int KinfoNameLength = 17;
+    private const int KinfoParentPidOffset = 560;
+    private const int CtlKern = 1;
+    private const int KernProc = 14;
+    private const int KernProcUid = 5;
+
+    /// <summary>
+    /// 自己這個使用者的所有程序（一次 sysctl）：PID、父 PID、啟動時間（秒＋微秒，只拿來認同一個程序；要和別處比的建立時間用 <see cref="StartTicks"/>）、
+    /// 名稱（最多 16 個字，長的被截斷）。讀不到回空的
+    /// </summary>
+    public static List<(int Pid, int ParentPid, long StartSeconds, int StartMicroseconds, string Name)> ReadOwn()
+    {
+        var result = new List<(int, int, long, int, string)>(1024);
+        var name = new[] { CtlKern, KernProc, KernProcUid, (int)getuid() };
+        for (int attempt = 0; attempt < 4; attempt++)
+        {
+            nuint length = 0;
+            if (sysctl(name, (uint)name.Length, null, ref length, IntPtr.Zero, 0) != 0 || length == 0)
+                return result;
+            // 兩次呼叫之間程序還會變多：多留一些；還是不夠（回錯誤）就重來
+            var buffer = new byte[(int)length + 64 * KinfoSize];
+            length = (nuint)buffer.Length;
+            if (sysctl(name, (uint)name.Length, buffer, ref length, IntPtr.Zero, 0) != 0)
+                continue;
+            for (int offset = 0; offset + KinfoSize <= (int)length; offset += KinfoSize)
+            {
+                int pid = BitConverter.ToInt32(buffer, offset + KinfoPidOffset);
+                if (pid <= 0)
+                    continue;
+                int nameEnd = Array.IndexOf(buffer, (byte)0, offset + KinfoNameOffset, KinfoNameLength);
+                int nameLength = (nameEnd < 0 ? offset + KinfoNameOffset + KinfoNameLength : nameEnd) - (offset + KinfoNameOffset);
+                result.Add((pid, BitConverter.ToInt32(buffer, offset + KinfoParentPidOffset), BitConverter.ToInt64(buffer, offset + KinfoStartSecondsOffset),
+                    BitConverter.ToInt32(buffer, offset + KinfoStartMicrosecondsOffset), Encoding.UTF8.GetString(buffer, offset + KinfoNameOffset, nameLength)));
+            }
+            return result;
+        }
+        return result;
+    }
+
+    /// <summary>
+    /// 程序的建立時間（UTC 的 DateTime ticks）；已結束、不存在、讀不到回 null。一律經 .NET 的 Process.StartTime：
+    /// ProcessTreeSnapshot（共用的程式）用的就是它，同一個程序在各處要得到完全相同的值才認得出是同一個
+    /// </summary>
+    public static long? StartTicks(int processId)
+    {
+        if (processId <= 0)
+            return null;
+        try
+        {
+            using var process = Process.GetProcessById(processId);
+            return process.HasExited ? null : process.StartTime.ToUniversalTime().Ticks;
+        }
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or Win32Exception or NotSupportedException)
+        {
+            return null;
+        }
+    }
+
     /// <summary>程序的執行檔完整路徑；不存在、沒有權限回 null</summary>
     public static string? PathOf(int processId)
     {
@@ -53,6 +117,12 @@ internal static class MacProcessTable
 
     [DllImport("libproc.dylib")]
     private static extern int proc_pidpath(int pid, [Out] byte[] buffer, uint bufferSize);
+
+    [DllImport("libc", SetLastError = true)]
+    private static extern int sysctl(int[] name, uint nameLength, [Out] byte[]? oldValue, ref nuint oldLength, IntPtr newValue, nuint newLength);
+
+    [DllImport("libc")]
+    private static extern uint getuid();
 }
 
 /// <summary>

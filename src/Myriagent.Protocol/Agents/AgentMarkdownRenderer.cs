@@ -361,6 +361,9 @@ internal static partial class AgentMarkdownRenderer
         {
             if (!pipeline.InlineParsers.Contains<LocalPathInlineParser>())
                 pipeline.InlineParsers.Add(new LocalPathInlineParser());
+            // macOS／Linux 的路徑是「/」開頭，另一個解析器認（Windows 上不裝：「/」開頭在那裡不是完整路徑）
+            if (!OperatingSystem.IsWindows() && !pipeline.InlineParsers.Contains<PosixPathInlineParser>())
+                pipeline.InlineParsers.Add(new PosixPathInlineParser());
         }
 
         public void Setup(MarkdownPipeline pipeline, IMarkdownRenderer renderer)
@@ -424,7 +427,7 @@ internal static partial class AgentMarkdownRenderer
         }
 
         /// <summary>還沒配對的「[」裡（可能是 Markdown 連結的文字）：連結不能包連結（同 Markdig 的 AutoLinkParser）</summary>
-        private static bool IsInLinkLabel(InlineProcessor processor)
+        internal static bool IsInLinkLabel(InlineProcessor processor)
         {
             int open = 0;
             for (var inline = processor.Inline; inline != null; inline = inline.Parent)
@@ -433,6 +436,53 @@ internal static partial class AgentMarkdownRenderer
                     open += delimiter.Type == DelimiterType.Open ? 1 : delimiter.Type == DelimiterType.Close ? -1 : 0;
             }
             return open > 0;
+        }
+    }
+
+    /// <summary>
+    /// 文字裡的 macOS／Linux 完整路徑（/Users/me/a.png）。觸發字元是「/」：前面接著英數字或網址、相對路徑的字元
+    /// （https://x、a/b、./a、~/a、2026/11/19）的不認；至少要兩層（WrittenPathTarget：單獨的「/help」多半是指令）。
+    /// 延伸到的字元與尾端不算的標點同 <see cref="LocalPathInlineParser"/>；含空白的路徑只能靠反引號或 Markdown 連結。在連結文字裡的不認
+    /// </summary>
+    private sealed class PosixPathInlineParser : InlineParser
+    {
+        private const string Terminators = "\"'`<>|*?()（）「」『』【】。，、；！？：";
+
+        private const string TrailingPunctuation = ".,;:!~]";
+
+        /// <summary>「/」前面是這些字元時不是路徑的開頭（網址、相對路徑、檔名、參數、HTML 結尾標籤的一部分）</summary>
+        private const string InvalidPrevious = "_/\\:.-%$@&#~<=+*";
+
+        public PosixPathInlineParser() => OpeningCharacters = new[] { '/' };
+
+        public override bool Match(InlineProcessor processor, ref StringSlice slice)
+        {
+            var text = slice.Text;
+            int start = slice.Start;
+            if (slice.PeekChar(1) is '/' or '\0' || char.IsWhiteSpace(slice.PeekChar(1)))
+                return false;
+            // 只擋英數字：中文後面直接接路徑（「檔案在/Users/me/a.png」）很常見
+            if (start > 0 && (char.IsAsciiLetterOrDigit(text[start - 1]) || InvalidPrevious.Contains(text[start - 1])))
+                return false;
+            if (LocalPathInlineParser.IsInLinkLabel(processor))
+                return false;
+
+            int end = start + 1;
+            while (end <= slice.End && !char.IsWhiteSpace(text[end]) && !char.IsControl(text[end]) && !Terminators.Contains(text[end]))
+                end++;
+            while (end > start && TrailingPunctuation.Contains(text[end - 1]) && !(text[end - 1] == ']' && text.AsSpan(start, end - start).Contains('[')))
+                end--;
+            var written = text[start..end];
+            if (WrittenPathTarget(written) is not { } path)
+                return false;
+
+            int position = processor.GetSourcePosition(start, out int line, out int column);
+            var span = new SourceSpan(position, position + written.Length - 1);
+            var link = new LocalPathLinkInline(path) { Span = span, Line = line, Column = column };
+            link.AppendChild(new LiteralInline(written) { Span = span, Line = line, Column = column, IsClosed = true });
+            processor.Inline = link;
+            slice.Start = end;
+            return true;
         }
     }
 

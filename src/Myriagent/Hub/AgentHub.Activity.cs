@@ -131,7 +131,9 @@ internal sealed partial class AgentHub
             var data = ActivityRules.CounterDelta(before, source.PipeBytes);
             activityPipes[id] = (source.Instance, source.PipeBytes);
             var tree = trees.TryGetValue(id, out var t) ? t : default;
-            deltas[id] = (data, tree.Io > 0 ? ActivityRules.DiskDelta(tree.Io, data) : 0, tree.Cpu, tree.Mem);
+            // 程序樹的讀寫量含管線的平台（Windows）才扣掉 app 與 CLI 之間的管線；macOS 量到的本來就只有硬碟
+            long disk = tree.Io <= 0 ? 0 : ProcessTreeIo.IoIncludesPipes ? ActivityRules.DiskDelta(tree.Io, data) : tree.Io;
+            deltas[id] = (data, disk, tree.Cpu, tree.Mem);
         }
         foreach (var (id, tree) in trees)
         {

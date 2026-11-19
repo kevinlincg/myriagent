@@ -163,16 +163,23 @@ internal static class BackgroundProgramRules
         if (string.IsNullOrEmpty(commandLine))
             return false;
         bool Has(string text) => commandLine.Contains(text, StringComparison.OrdinalIgnoreCase);
-        return name.ToLowerInvariant() switch
+        return ProgramKey(name) switch
         {
-            "msbuild.exe" => Has("nodemode:"),
-            "dotnet.exe" => Has("VBCSCompiler.dll") || Has("rzc.dll") || (Has("MSBuild.dll") && Has("nodemode:")),
-            "java.exe" or "javaw.exe" => Has("GradleDaemon") || Has("KotlinCompileDaemon"),
-            "git.exe" => Has("fsmonitor--daemon"),
-            "adb.exe" => Has("fork-server"),
-            "sqlservr.exe" => Has("LocalDB"),
+            "msbuild" => Has("nodemode:"),
+            "dotnet" => Has("VBCSCompiler.dll") || Has("rzc.dll") || (Has("MSBuild.dll") && Has("nodemode:")),
+            "java" or "javaw" => Has("GradleDaemon") || Has("KotlinCompileDaemon"),
+            "git" => Has("fsmonitor--daemon"),
+            "adb" => Has("fork-server"),
+            "sqlservr" => Has("LocalDB"),
             _ => false,
         };
+    }
+
+    /// <summary>比對用的程式名稱：小寫、去掉 Windows 的「.exe」（macOS／Linux 的執行檔沒有副檔名，同一套名單兩邊都用）</summary>
+    internal static string ProgramKey(string name)
+    {
+        var lower = name.ToLowerInvariant();
+        return lower.EndsWith(".exe", StringComparison.Ordinal) ? lower[..^4] : lower;
     }
 
     /// <summary>
@@ -183,14 +190,16 @@ internal static class BackgroundProgramRules
     /// </summary>
     public static bool IsBackgroundGuiProgram(string name, string? commandLine)
     {
-        switch (name.ToLowerInvariant())
+        switch (ProgramKey(name))
         {
-            case "pythonw.exe" or "javaw.exe" or "wscript.exe":
+            case "pythonw" or "javaw" or "wscript":
                 return true;
-            case "chrome.exe" or "msedge.exe" or "brave.exe" or "chromium.exe" or "vivaldi.exe":
+            // 後面幾個是 macOS 上的執行檔名稱（Google Chrome.app/Contents/MacOS/Google Chrome）
+            case "chrome" or "msedge" or "brave" or "chromium" or "vivaldi"
+                or "google chrome" or "google chrome for testing" or "microsoft edge" or "brave browser":
                 return commandLine is { } cmd && (cmd.Contains("--remote-debugging-port", StringComparison.OrdinalIgnoreCase)
                     || cmd.Contains("--remote-debugging-pipe", StringComparison.OrdinalIgnoreCase) || cmd.Contains("--headless", StringComparison.OrdinalIgnoreCase));
-            case "firefox.exe":
+            case "firefox":
                 return commandLine is { } ff && (ff.Contains("--marionette", StringComparison.OrdinalIgnoreCase) || ff.Contains("-headless", StringComparison.OrdinalIgnoreCase));
             default:
                 return false;
