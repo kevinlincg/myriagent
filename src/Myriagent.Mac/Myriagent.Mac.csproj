@@ -74,6 +74,7 @@
     <MacExcluded Include="..\Myriagent\SystemStatus\NativeStats.cs" />
     <MacExcluded Include="..\Myriagent\SystemStatus\NetworkTotals.cs" />
     <MacExcluded Include="..\Myriagent\SystemStatus\PdhQuery.cs" />
+    <MacExcluded Include="..\Myriagent\Update\Junction.cs" />
     <MacExcluded Include="..\Myriagent\Update\SelfInstaller.cs" />
     <MacExcluded Include="..\Myriagent\UI\AgentWebView.cs" />
     <MacExcluded Include="..\Myriagent\UI\AppController.cs" />
