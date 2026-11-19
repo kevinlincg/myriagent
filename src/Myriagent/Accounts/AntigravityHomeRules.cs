@@ -88,7 +88,11 @@ internal static class AntigravityHomeRules
 
     private static void Keep(IDictionary<string, string?> env, string name, string original, string ours)
     {
-        if (env.TryGetValue(name, out var value) && !string.IsNullOrEmpty(value) && value != ours)
+        env.TryGetValue(name, out var value);
+        // 已經是自己的小腳本（套過一次）：之前記下的原值留著
+        if (value == ours)
+            return;
+        if (!string.IsNullOrEmpty(value))
             env[original] = value;
         else
             env.Remove(original);
