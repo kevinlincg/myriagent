@@ -276,7 +276,28 @@ internal static partial class CliInstallStabilityRules
             && image.IndexOf("claude", StringComparison.OrdinalIgnoreCase) < 0
             && image.IndexOf(installLock.ExecutablePath, StringComparison.OrdinalIgnoreCase) < 0)
             return false;
+        if (IsRunningVersionLock(installLock))
+            return false;
         return true;
+    }
+
+    /// <summary>
+    /// 鎖的是持有者自己正在執行的那個版本檔（不是安裝）：macOS／Linux 的原生 Claude 直接執行版本檔（…/claude/versions/2.1.311），
+    /// 整個執行期間都鎖著自己那一版（2.1.311.lock，同版本的第二個程序是 2.1.311#PID.lock），不讓清理舊版時把它刪掉——
+    /// 鎖的 execPath 檔名就是被鎖的版本。安裝新版時鎖的是別的版本（持有者的 execPath 是它自己的舊版）。
+    /// Windows 的 Claude 執行的是 ~\.local\bin\claude.exe，不會有這種鎖
+    /// </summary>
+    internal static bool IsRunningVersionLock(ClaudeInstallLock installLock)
+    {
+        if (installLock.IsDirectory || string.IsNullOrEmpty(installLock.ExecutablePath))
+            return false;
+        var locked = installLock.Name.EndsWith(".lock", StringComparison.OrdinalIgnoreCase) ? installLock.Name[..^".lock".Length] : installLock.Name;
+        int mark = locked.IndexOf('#');
+        if (mark >= 0)
+            locked = locked[..mark];
+        var running = installLock.ExecutablePath.TrimEnd('\\', '/');
+        int separator = running.LastIndexOfAny(['\\', '/']);
+        return locked.Length > 0 && string.Equals(running[(separator + 1)..], locked, StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>

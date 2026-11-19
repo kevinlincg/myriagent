@@ -2,9 +2,9 @@
 const LOCAL_ORIGIN = 'https://myriagent.local';
 const LOCAL_MARKER = '#local-file=';
 
-/** 本機磁碟的完整路徑；UNC 與其他協定不交給宿主。 */
+/** 本機磁碟的完整路徑（Windows 的「C:\\…」或 macOS／Linux 的「/…」）；UNC（含「//」開頭）與其他協定不交給宿主。 */
 function localPath(path) {
-  return typeof path === 'string' && /^[a-z]:[\\/]/i.test(path) && !/[\u0000-\u001f]/.test(path) ? path : null;
+  return typeof path === 'string' && (/^[a-z]:[\\/]/i.test(path) || /^\/(?!\/)/.test(path)) && !/[\u0000-\u001f]/.test(path) ? path : null;
 }
 
 /** 回傳 { path, remote }，一般網址或無效的檔案標記回 null。 */
