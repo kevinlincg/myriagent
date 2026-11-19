@@ -420,6 +420,16 @@ internal sealed class AccountManager : IDisposable
     /// 帳戶清單遺失或損毀時，從 accounts\{id}\claude、accounts\{id}\codex 資料夾找回 app 建立過的隔離帳戶
     /// （登入憑證還在資料夾裡，只是名稱與顏色要重設）；已移除、留有待刪標記的資料夾不算
     /// </summary>
+    /// <summary>還原的帳戶用第二順位的顏色，和本機預設帳戶區分（macOS 的 agy 也有隔離帳戶）</summary>
+    internal static string RecoveredColor(AgentProvider provider) => provider switch
+    {
+        AgentProvider.Claude => "#E5A04B",
+        AgentProvider.Codex => "#4FA3F7",
+        AgentProvider.Antigravity => "#C678DD",
+        AgentProvider.Grok => "#3FB950",
+        _ => throw new ArgumentOutOfRangeException(nameof(provider), provider, null),
+    };
+
     internal static List<AgentAccount> RecoverIsolatedAccounts()
     {
         var result = new List<AgentAccount>();
@@ -443,13 +453,7 @@ internal sealed class AccountManager : IDisposable
                         Provider = provider,
                         Label = $"{AccountRules.ProviderName(provider)} 帳戶（還原 {id[..6]}）",
                         // 還原的帳戶用第二順位的顏色，和本機預設帳戶區分
-                        Color = provider switch
-                        {
-                            AgentProvider.Claude => "#E5A04B",
-                            AgentProvider.Codex => "#4FA3F7",
-                            AgentProvider.Grok => "#3FB950",
-                            _ => throw new ArgumentOutOfRangeException(nameof(provider), provider, null),
-                        },
+                        Color = RecoveredColor(provider),
                         ConfigDirectory = config,
                     });
                     break;

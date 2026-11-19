@@ -52,7 +52,7 @@ public class AntigravityRulesTests
     public void 只有本機預設帳戶_支援精簡模式_沒有憑證檔可監看_資料夾在使用者資料夾的gemini底下()
     {
         AccountRules.SystemDefaultId(AgentProvider.Antigravity).Should().Be("local-antigravity");
-        AccountRules.SupportsIsolatedAccounts(AgentProvider.Antigravity).Should().BeFalse();
+        AccountRules.SupportsIsolatedAccounts(AgentProvider.Antigravity, windows: true).Should().BeFalse("Windows 的 agy 登入存在認證管理員；macOS 另見 AntigravityHomeRulesTests");
         AccountRules.SupportsIsolatedAccounts(AgentProvider.Claude).Should().BeTrue();
         AccountRules.SupportsSafeMode(AgentProvider.Antigravity).Should().BeTrue("agy 1.4.6 支援 --disable-slash-commands 精簡模式");
         AccountRules.SupportsSafeMode(AgentProvider.Codex).Should().BeTrue();

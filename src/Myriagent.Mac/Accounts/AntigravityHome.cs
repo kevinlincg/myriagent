@@ -27,6 +27,12 @@ internal static class AntigravityHome
                 return;
             try
             {
+                // 家不在了（帳戶剛被移除、資料夾已刪）就不重建；家或要整理的那幾層是連結（不是 app 建的）就整個不動，免得列到真正的家去刪連結
+                if (!Directory.Exists(home) || OwnFolders(home).Any(IsLink))
+                {
+                    Log.Warn($"agy 帳戶的資料夾不在或被換成連結，不整理：{home}");
+                    return;
+                }
                 var realHome = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
                 Directory.CreateDirectory(AntigravityHomeRules.ConfigDirectory(home));
                 Directory.CreateDirectory(Path.GetDirectoryName(AntigravityHomeRules.KeychainPath(home))!);
@@ -55,6 +61,13 @@ internal static class AntigravityHome
         RemoveLinksIn(AntigravityHomeRules.ConfigDirectory(home));
         lastRefresh.TryRemove(home, out _);
     }
+
+    /// <summary>家本身與每一層自己保留的資料夾（Library、.gemini、antigravity-cli）</summary>
+    private static IEnumerable<string> OwnFolders(string home)
+        => AntigravityHomeRules.MirroredFolders.Select(m => m.Folder.Length == 0 ? home : Path.Combine(home, m.Folder))
+            .Append(AntigravityHomeRules.ConfigDirectory(home));
+
+    private static bool IsLink(string path) => new FileInfo(path).LinkTarget != null;
 
     private static void RemoveLinksIn(string folder)
     {
@@ -108,9 +121,7 @@ internal static class AntigravityHome
             Directory.CreateDirectory(Path.GetDirectoryName(link)!);
             File.CreateSymbolicLink(link, target);
         }
-        var folders = AntigravityHomeRules.MirroredFolders.Select(m => m.Folder.Length == 0 ? home : Path.Combine(home, m.Folder))
-            .Append(AntigravityHomeRules.ConfigDirectory(home));
-        foreach (var folder in folders)
+        foreach (var folder in OwnFolders(home))
         {
             if (!Directory.Exists(folder))
                 continue;

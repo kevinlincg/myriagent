@@ -117,6 +117,12 @@ internal static class AccountRules
         "ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "OPENAI_API_KEY", "CODEX_API_KEY",
     };
 
+    /// <summary>
+    /// 各種 API Key 與指向別處登入的變數（macOS 在終端機開登入視窗時一律拿掉：終端機的 shell 有使用者自己 export 的，
+    /// 不在 app 的環境裡，環境差異看不出來）
+    /// </summary>
+    public static IEnumerable<string> CredentialVariables => SecretVariables.Concat(AntigravitySecretVariables).Concat(GrokSecretVariables);
+
     /// <summary>繼承的 CLAUDE* 變數中要保留的（使用者自己的設定）；其他是從 Claude Code session 內啟動時帶進來的，要剝除</summary>
     private static readonly HashSet<string> ClaudeVariablesToKeep = new(StringComparer.OrdinalIgnoreCase)
     {

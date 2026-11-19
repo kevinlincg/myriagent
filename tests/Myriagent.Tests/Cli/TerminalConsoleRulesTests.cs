@@ -35,6 +35,18 @@ public sealed class TerminalConsoleRulesTests
     }
 
     [Fact]
+    public void 環境差異_API_Key一律拿掉_除非設定之後有值()
+    {
+        var (set, unset) = TerminalConsoleRules.Changes(
+            new Dictionary<string, string?> { ["PATH"] = "/bin" },
+            new Dictionary<string, string?> { ["PATH"] = "/bin", ["XAI_API_KEY"] = "k" },
+            ["ANTHROPIC_API_KEY", "GEMINI_API_KEY", "XAI_API_KEY", "bad-name"]);
+        unset.Should().Equal("ANTHROPIC_API_KEY", "GEMINI_API_KEY");
+        set.Should().Equal(new KeyValuePair<string, string>("XAI_API_KEY", "k"));
+        Myriagent.Accounts.AccountRules.CredentialVariables.Should().Contain(new[] { "ANTHROPIC_API_KEY", "OPENAI_API_KEY", "GEMINI_API_KEY", "XAI_API_KEY" });
+    }
+
+    [Fact]
     public void 環境差異_值設成null也算拿掉()
     {
         var (set, unset) = TerminalConsoleRules.Changes(
@@ -52,7 +64,7 @@ public sealed class TerminalConsoleRulesTests
         script.Should().Contain("D='/tmp/c 1'\n");
         script.Should().Contain("echo $$ > \"$D/run.pid\"\n");
         script.Should().Contain("printf '\\033]0;%s\\007' 'Antigravity 登入'\n");
-        script.Should().Contain("( while kill -0 \"$W\" 2>/dev/null; do sleep 1; done; [ -f \"$D/done\" ] || kill -TERM 0 ) &\n");
+        script.Should().Contain("( while kill -0 \"$W\" 2>/dev/null; do sleep 1; done; [ -f \"$D/done\" ] || { rm -rf \"$D\"; kill -TERM 0; } ) &\n");
         script.Should().Contain("export HOME='/h/agy home'\nexport ZDOTDIR='/h/s'\nunset CLAUDECODE\n");
         script.Should().Contain("cd '/work dir' 2>/dev/null\n'/Users/k/.local/bin/agy' '--x' 'a'\\''b'\nrc=$?\n");
         script.Should().Contain("echo \"$rc\" > \"$D/done.tmp\" && mv -f \"$D/done.tmp\" \"$D/done\"\n");

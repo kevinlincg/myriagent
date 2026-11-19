@@ -16,7 +16,7 @@ internal static partial class CliRunner
         var before = new Dictionary<string, string?>(psi.Environment, StringComparer.Ordinal);
         configureEnvironment?.Invoke(psi.Environment);
         var after = new Dictionary<string, string?>(psi.Environment, StringComparer.Ordinal);
-        var (set, unset) = TerminalConsoleRules.Changes(before, after);
+        var (set, unset) = TerminalConsoleRules.Changes(before, after, global::Myriagent.Accounts.AccountRules.CredentialVariables);
 
         var folder = Path.Combine(Path.GetTempPath(), "myriagent-console", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(folder);

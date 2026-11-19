@@ -38,6 +38,15 @@ public sealed class AntigravityHomeRulesTests
     }
 
     [Fact]
+    public void 從資料夾還原帳戶_每種CLI都有顏色()
+    {
+        // macOS 的 agy 也會從 accounts\<id>\agy-home 還原：沒有顏色會丟例外，app 啟動失敗
+        foreach (var provider in AgentProviders.All)
+            AccountManager.RecoveredColor(provider).Should().StartWith("#");
+        AccountManager.RecoveredColor(AgentProvider.Antigravity).Should().NotBe(AccountRules.SystemDefaultAppearance(AgentProvider.Antigravity).Color, "和本機預設帳戶區分");
+    }
+
+    [Fact]
     public void 設定資料夾與鑰匙圈在家裡()
     {
         AntigravityHomeRules.ConfigDirectory(Home).Should().Be(Path.Combine(Home, ".gemini", "antigravity-cli"));

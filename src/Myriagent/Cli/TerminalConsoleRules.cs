@@ -8,8 +8,8 @@ namespace Myriagent.Cli;
 /// <list type="bullet">
 /// <item>watch.sh：app 啟動、等待的程序。記下自己的 PID、叫終端機開 run.command，等到 done 檔出現就以它的結束碼結束；
 /// run.command 沒寫 done 就不見了（使用者關掉視窗）回 1；終端機一直沒開起來（StartTimeout）也回 1</item>
-/// <item>run.command：在終端機裡執行。設好環境變數（只寫和 app 不同的：終端機的 shell 有使用者自己的環境），執行指令、把結束碼寫進 done。
-/// 背景盯著 watch.sh：它被結束（逾時、取消、移除帳戶時 app 會砍它）就結束整個指令</item>
+/// <item>run.command：在終端機裡執行。設好環境變數（只寫和 app 不同的：終端機的 shell 有使用者自己的環境；API Key 一律拿掉），
+/// 執行指令、把結束碼寫進 done。背景盯著 watch.sh：它被結束（登入完成、逾時、取消、移除帳戶時 app 會砍它）就清掉暫存資料夾、結束整個指令</item>
 /// </list>
 /// </summary>
 internal static class TerminalConsoleRules
@@ -30,9 +30,12 @@ internal static class TerminalConsoleRules
     public static bool IsVariableName(string name)
         => name.Length > 0 && (char.IsAsciiLetter(name[0]) || name[0] == '_') && name.All(c => char.IsAsciiLetterOrDigit(c) || c == '_');
 
-    /// <summary>設定環境之後和之前差在哪：要設的（新加或改了值）與要拿掉的；名稱排序，sh 不能用的名稱略過</summary>
+    /// <summary>
+    /// 設定環境之後和之前差在哪：要設的（新加或改了值）與要拿掉的；名稱排序，sh 不能用的名稱略過。
+    /// alwaysUnset＝不論 app 的環境裡有沒有都要拿掉的（API Key：終端機的 shell 可能有使用者自己 export 的），設定之後有值的不拿
+    /// </summary>
     public static (IReadOnlyList<KeyValuePair<string, string>> Set, IReadOnlyList<string> Unset) Changes(
-        IReadOnlyDictionary<string, string?> before, IReadOnlyDictionary<string, string?> after)
+        IReadOnlyDictionary<string, string?> before, IReadOnlyDictionary<string, string?> after, IEnumerable<string>? alwaysUnset = null)
     {
         var set = after
             .Where(kv => kv.Value != null && IsVariableName(kv.Key) && (!before.TryGetValue(kv.Key, out var old) || old != kv.Value))
@@ -42,6 +45,8 @@ internal static class TerminalConsoleRules
         var unset = before
             .Where(kv => kv.Value != null && IsVariableName(kv.Key) && (!after.TryGetValue(kv.Key, out var now) || now == null))
             .Select(kv => kv.Key)
+            .Concat((alwaysUnset ?? []).Where(k => IsVariableName(k) && (!after.TryGetValue(k, out var now) || now == null)))
+            .Distinct(StringComparer.Ordinal)
             .OrderBy(k => k, StringComparer.Ordinal)
             .ToList();
         return (set, unset);
@@ -62,7 +67,7 @@ internal static class TerminalConsoleRules
         sb.Append("W=$(cat \"$D/").Append(WatcherPidFile).Append("\" 2>/dev/null)\n");
         // app 那邊等待的程序不見了（逾時、取消）：結束這個視窗裡的整個指令（同一個程序群組）
         sb.Append("if [ -n \"$W\" ]; then\n");
-        sb.Append("  ( while kill -0 \"$W\" 2>/dev/null; do sleep 1; done; [ -f \"$D/").Append(DoneFile).Append("\" ] || kill -TERM 0 ) &\n");
+        sb.Append("  ( while kill -0 \"$W\" 2>/dev/null; do sleep 1; done; [ -f \"$D/").Append(DoneFile).Append("\" ] || { rm -rf \"$D\"; kill -TERM 0; } ) &\n");
         sb.Append("  M=$!\n");
         sb.Append("fi\n");
         foreach (var (key, value) in set)
