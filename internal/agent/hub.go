@@ -26,6 +26,17 @@ type Hub struct {
 	clis     map[string]*cliInfo
 
 	flushKick chan struct{}
+
+	// 本機介面（localapi.go）：對話權杖的亂數、這台 agent 的位址
+	localOnce   sync.Once
+	localSecret []byte
+	localURL    string
+
+	// 執行列（launch.go）與工作資料夾的 git 狀態（repostatus.go）
+	launch *launchHub
+	repo   *repoHub
+	// 排程頁與定時訊息（schedules.go、timed.go）；沒掛讀取器是 nil
+	sched *scheduleHub
 }
 
 // View 是一個連上的網頁（一個視窗或瀏覽器分頁）
@@ -186,6 +197,7 @@ func (h *Hub) conversationList() []ConversationSummary {
 			Group: groupLabel(time.UnixMilli(c.Meta.UpdatedAt), now), UpdatedAt: c.Meta.UpdatedAt,
 			WorkingDirectory: c.workDir(h), CustomFolder: c.Meta.CustomFolder,
 			Running: c.running, Waiting: c.waiting(), Unread: c.unread,
+			ProgramCount: h.programCount(c),
 		})
 	}
 	sort.Slice(list, func(i, j int) bool { return list[i].UpdatedAt > list[j].UpdatedAt })
@@ -249,6 +261,9 @@ func (h *Hub) flushLoop() {
 // shutdown 停掉所有 CLI、存檔
 func (h *Hub) shutdown() {
 	h.mu.Lock()
+	for _, f := range shutdownHooks {
+		f(h)
+	}
 	closing := 0
 	for _, c := range h.convs {
 		c.save(h)

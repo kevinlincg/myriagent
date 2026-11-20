@@ -42,6 +42,9 @@ func (h *Hub) handle(v *View, msg map[string]any) {
 					cc.unread = false
 					cc.dirtyList = true
 				}
+				if cc := h.convs[s]; cc != nil && v.open[s] {
+					h.fireConvEvent(convVisible, v, cc)
+				}
 			}
 		}
 	case "newConversation":
@@ -57,6 +60,7 @@ func (h *Hub) handle(v *View, msg map[string]any) {
 			c.dirtyList = true
 		}
 		h.sendTo(v, h.conversationMsg(c, nil))
+		h.fireConvEvent(convOpened, v, c)
 	case "close":
 		delete(v.open, id)
 		delete(v.visible, id)
@@ -105,6 +109,9 @@ func (h *Hub) handle(v *View, msg map[string]any) {
 		}
 	case "delete":
 		if c != nil {
+			if stop, _ := msg["stopPrograms"].(bool); stop {
+				h.stopConversationPrograms(c)
+			}
 			h.deleteConversation(c)
 		}
 	case "setOption":
@@ -124,6 +131,7 @@ func (h *Hub) handle(v *View, msg map[string]any) {
 			c.Meta.CustomFolder, c.Meta.WorkingDirectory = false, ""
 			h.restartSession(c)
 			c.changed()
+			h.fireConvEvent(convFolderChanged, nil, c)
 		}
 	case "chooseFolder":
 		if c != nil {
@@ -133,14 +141,7 @@ func (h *Hub) handle(v *View, msg map[string]any) {
 		if c != nil {
 			openInFileManager(c.workDir(h))
 		}
-	case "openPath", "revealPath":
-		if p := str(msg, "path"); p != "" {
-			if cmd == "revealPath" {
-				revealInFileManager(p)
-			} else {
-				openInFileManager(p)
-			}
-		}
+	// openPath、revealPath：files.go（只開本機路徑、白名單外的只在檔案管理員選取）
 	case "openUrl":
 		if u := str(msg, "url"); strings.HasPrefix(u, "https://") || strings.HasPrefix(u, "http://") {
 			openInFileManager(u)
@@ -151,7 +152,7 @@ func (h *Hub) handle(v *View, msg map[string]any) {
 		h.setConversationDefault(str(msg, "provider"), str(msg, "key"), msg["value"])
 	case "clientError":
 		log.Printf("網頁錯誤：%v", msg["message"])
-	case "monitor", "promptHistory", "listExternalConversations":
+	case "promptHistory", "listExternalConversations":
 		// 還沒移植的功能：不回應（網頁照舊顯示，不會卡住）
 	default:
 		if f := commandHandlers[cmd]; f != nil {
@@ -266,6 +267,7 @@ func (h *Hub) newConversation(v *View, accountID string, paneID any) {
 	h.convs[c.Meta.ID] = c
 	v.open[c.Meta.ID] = true
 	h.sendTo(v, h.conversationMsg(c, paneID))
+	h.fireConvEvent(convOpened, v, c)
 }
 
 func (h *Hub) send(v *View, c *Conv, text string) {
@@ -411,6 +413,7 @@ func (h *Hub) setFolder(v *View, c *Conv, path string) {
 	h.rememberFolder(path)
 	h.restartSession(c)
 	c.changed()
+	h.fireConvEvent(convFolderChanged, nil, c)
 }
 
 func (h *Hub) rememberFolder(path string) {
@@ -506,10 +509,19 @@ func (h *Hub) applySetting(v *View, key string, value any) {
 			}
 		}
 	}
+	if f := settingHooks[key]; f != nil {
+		value = f(h, h.setting(key), value)
+	}
 	h.settings.Values[key] = value
 	h.saveSettings()
 	h.broadcast(map[string]any{"type": "settings", "settings": h.settingsView()})
 }
+
+// settingHooks：各功能在設定改變時要做的事（registerSettingHook 登記；呼叫時持有 h.mu、型別已檢查過）。
+// 收到改之前與新的值，回要存的值（可以正規化）
+var settingHooks = map[string]func(h *Hub, before, value any) any{}
+
+func registerSettingHook(key string, f func(h *Hub, before, value any) any) { settingHooks[key] = f }
 
 func (h *Hub) setConversationDefault(provider, key string, value any) {
 	all, _ := h.settings.Values["conversationDefaults"].(map[string]any)

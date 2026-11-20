@@ -57,6 +57,7 @@ func Main(args []string) error {
 		return err
 	}
 	url := fmt.Sprintf("http://%s/?t=%s", l.Addr().String(), token)
+	hub.SetLocalURL("http://" + l.Addr().String())
 	// 給 Mac 的視窗與其他工具找到介面：status 檔寫網址
 	exe, _ := os.Executable()
 	if p, err := filepath.EvalSymlinks(exe); err == nil {

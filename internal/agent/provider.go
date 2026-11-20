@@ -52,6 +52,9 @@ func (h *Hub) startTurn(c *Conv, text string) {
 	c.status = "思考中…"
 	c.Meta.UpdatedAt = nowMs()
 	c.changed()
+	for _, f := range turnStartHooks {
+		f(h, c)
+	}
 	if err := p.Send(h, c, text, nil); err != nil {
 		c.running = false
 		c.status = ""
@@ -62,6 +65,7 @@ func (h *Hub) startTurn(c *Conv, text string) {
 
 // endTurn 是各家在一輪結束時呼叫的共用收尾：清掉串流狀態、標未讀、接著送佇列
 func (h *Hub) endTurn(c *Conv) {
+	outcome := turnOutcome(c)
 	c.running, c.stopping = false, false
 	c.status = ""
 	c.Meta.UpdatedAt = nowMs()
@@ -72,7 +76,10 @@ func (h *Hub) endTurn(c *Conv) {
 		}
 	}
 	c.changed()
-	if len(c.queue) > 0 {
+	h.fireConvEvent(convTurnEnded, nil, c)
+	// 各功能的一輪結束（turnhooks.go）：在接著送佇列之前
+	h.runTurnEndHooks(c, outcome)
+	if len(c.queue) > 0 && !c.running {
 		next := c.queue[0]
 		c.queue = c.queue[1:]
 		c.dirtyComp = true

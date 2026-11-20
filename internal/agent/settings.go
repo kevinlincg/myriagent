@@ -30,7 +30,7 @@ var settingDefaults = map[string]any{
 	"notifications":               true,
 	"voiceNotifications":          false,
 	"voiceSpeed":                  1.5,
-	"voicePitch":                  0,
+	"voicePitch":                  2,
 	"scheduleAutoDiagnose":        nil,
 	"autoUpdateCli":               false,
 	"autoUpdateApp":               false,

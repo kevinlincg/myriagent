@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"github.com/kevinlincg/myriagent/internal/agent"
+	"github.com/kevinlincg/myriagent/internal/schedulecli"
 )
 
 const usage = `用法：myriagent <子指令> [選項]
@@ -16,7 +17,7 @@ const usage = `用法：myriagent <子指令> [選項]
   hub        多台電腦同步與網頁版的伺服器（尚未完成）
   desk       遠端桌面的鎖定畫面支援（尚未完成）
   remote     在對話裡讓代理到其他電腦執行指令（尚未完成）
-  schedule   在對話裡讓代理設定定時訊息（尚未完成）
+  schedule   在對話裡讓代理設定定時訊息（myriagent schedule --help）
 `
 
 func main() {
@@ -28,6 +29,8 @@ func main() {
 	switch os.Args[1] {
 	case "agent":
 		err = agent.Main(os.Args[2:])
+	case "schedule":
+		os.Exit(schedulecli.Main(os.Args[2:], os.Stdout, os.Stderr))
 	case "help", "-h", "--help":
 		fmt.Print(usage)
 		return

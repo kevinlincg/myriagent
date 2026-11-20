@@ -57,7 +57,7 @@ func agyEnv(a *Account, extra map[string]string) []string {
 var agyACPArgs = []string{"acp", "--stdio"}
 
 func (agyFlavor) launch(h *Hub, c *Conv, a *Account, wd string) ([]string, []string, error) {
-	return agyACPArgs, agyEnv(a, map[string]string{"MYRIAGENT_AGENT_CONVERSATION": c.Meta.ID, "PWD": wd}), nil
+	return agyACPArgs, agyEnv(a, h.agentEnvMap(c, map[string]string{"PWD": wd})), nil
 }
 
 // initializeParams：宣告支援 elicitation.form 與 terminal-auth；檔案讀寫與終端機設為 false，讓 agy 用內建工具並透過 session/request_permission 請求核准

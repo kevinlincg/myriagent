@@ -47,7 +47,7 @@ func (h *Hub) ensureSession(c *Conv) error {
 		Executable: cli.path, WorkDir: wd, SessionID: c.Meta.SessionID, Resume: c.Meta.SessionStarted,
 		Model: model, Effort: effort, PermissionMode: claudePermission(c.Meta.Permission), ConfigDir: a.ConfigDir,
 		AppendSystem: h.instructions(c),
-		Env:          []string{"MYRIAGENT_AGENT_CONVERSATION=" + c.Meta.ID},
+		Env:          h.agentEnv(c),
 	}
 	convID := c.Meta.ID
 	var sess *claude.Session
@@ -89,7 +89,7 @@ func (h *Hub) ensureSession(c *Conv) error {
 // instructions：附加給代理的說明（設定頁的 instructions；{cwd} 代換成工作資料夾）
 func (h *Hub) instructions(c *Conv) string {
 	s, _ := h.setting("instructions").(string)
-	return strings.ReplaceAll(s, "{cwd}", c.workDir(h))
+	return strings.ReplaceAll(s, "{cwd}", c.workDir(h)) + h.extraInstructions(c)
 }
 
 // claudeProvider：Claude Code CLI（claude -p，stream-json）
@@ -377,6 +377,7 @@ func (h *Hub) onToolUse(c *Conv, block map[string]any) {
 	c.touch(it)
 	c.status = d.Name + "：" + truncate(d.Title, 80)
 	c.dirtyHeader = true
+	h.runToolStartHooks(c, it)
 }
 
 func (h *Hub) onClaudeUser(c *Conv, msg map[string]any) {
@@ -527,6 +528,7 @@ func (h *Hub) onClaudeControlRequest(c *Conv, msg map[string]any) {
 	it.Status = "Waiting"
 	it.RequestID = reqID
 	c.pending[it.ID] = p
+	h.requestAttention(c, it, str(input, "plan"))
 	c.status = "等你回應"
 	if !h.viewing(c.Meta.ID) {
 		c.unread = true
