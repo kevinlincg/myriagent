@@ -30,6 +30,7 @@
     sock.onmessage = function (e) {
       var data;
       try { data = JSON.parse(e.data); } catch (err) { return; }
+      if (data && data.type === 'nativeNotify') { nativeNotify(data); return; }
       deliver(data);
     };
     sock.onclose = function () {
@@ -37,6 +38,22 @@
       setTimeout(connect, 2000);
     };
   }
+
+  // 系統通知：Mac 的視窗程式（WKWebView）交給它發；一般瀏覽器用 Notification API（要使用者允許過）
+  function nativeNotify(d) {
+    var mh = window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.myriagent;
+    if (mh) { mh.postMessage({ kind: 'notify', title: d.title || '', body: d.body || '', conversationId: d.conversationId || null }); return; }
+    if (typeof Notification === 'undefined') return;
+    if (Notification.permission === 'granted') {
+      var n = new Notification(d.title || 'Clode Myriagent', { body: d.body || '' });
+      n.onclick = function () { window.focus(); if (d.conversationId) window.myriagentFocus(d.conversationId); };
+    } else if (Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
+  }
+
+  // 點了通知：切到那個對話（照宿主的 focusConversation 交給網頁）
+  window.myriagentFocus = function (id) { deliver({ type: 'focusConversation', conversationId: id }); };
 
   window.chrome = window.chrome || {};
   window.chrome.webview = {

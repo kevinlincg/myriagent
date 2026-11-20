@@ -25,6 +25,9 @@ var (
 
 // Main 是 myriagent agent
 func Main(args []string) error {
+	if len(args) > 0 && (args[0] == "install" || args[0] == "uninstall" || args[0] == "status") {
+		return serviceMain(args[0], args[1:])
+	}
 	fs := flag.NewFlagSet("agent", flag.ContinueOnError)
 	data := fs.String("data", "", "資料夾（預設 macOS ~/Library/Application Support/Myriagent、Linux ~/.local/share/myriagent）")
 	port := fs.Int("port", 47800, "本機介面的連接埠（被占用時往後找）")
@@ -55,7 +58,11 @@ func Main(args []string) error {
 	}
 	url := fmt.Sprintf("http://%s/?t=%s", l.Addr().String(), token)
 	// 給 Mac 的視窗與其他工具找到介面：status 檔寫網址
-	writeJSON(filepath.Join(root, "agent.json"), map[string]any{"url": url, "pid": os.Getpid(), "version": Version, "build": Build})
+	exe, _ := os.Executable()
+	if p, err := filepath.EvalSymlinks(exe); err == nil {
+		exe = p
+	}
+	writeJSON(filepath.Join(root, "agent.json"), map[string]any{"url": url, "pid": os.Getpid(), "exe": exe, "version": Version, "build": Build})
 	log.Printf("myriagent agent %s（%s）：資料夾 %s", Version, Build, root)
 	fmt.Println("介面：" + url)
 	httpSrv := &http.Server{Handler: srv, ReadHeaderTimeout: 10 * time.Second}
@@ -94,3 +101,5 @@ func (m multiWriter) Write(p []byte) (int, error) {
 	}
 	return len(p), nil
 }
+
+func pathsDataRoot(flag string) string { return paths.DataRoot(flag) }

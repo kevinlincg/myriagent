@@ -530,6 +530,14 @@ func (h *Hub) onClaudeControlRequest(c *Conv, msg map[string]any) {
 	c.status = "等你回應"
 	if !h.viewing(c.Meta.ID) {
 		c.unread = true
+		switch it.Kind {
+		case "Question":
+			h.notify(c, "代理有問題要問你")
+		case "PlanApproval":
+			h.notify(c, "代理規劃好了，等你確認")
+		default:
+			h.notify(c, "要你核准："+it.ToolName+" "+truncate(it.Title, 60))
+		}
 	}
 	c.changed()
 }

@@ -67,6 +67,9 @@ func (h *Hub) endTurn(c *Conv) {
 	c.Meta.UpdatedAt = nowMs()
 	if !h.viewing(c.Meta.ID) {
 		c.unread = true
+		if len(c.queue) == 0 {
+			h.notify(c, "代理已回覆")
+		}
 	}
 	c.changed()
 	if len(c.queue) > 0 {
@@ -119,3 +122,16 @@ func (h *Hub) respondCard(c *Conv, cmd string, msg map[string]any) {
 }
 
 func renderUserText(s string) string { return render.Text(s) }
+
+// notify 發系統通知（設定 notifications 關掉時不發）：只送給一個 view，多個視窗不會重複跳
+func (h *Hub) notify(c *Conv, body string) {
+	if !h.settingBool("notifications") {
+		return
+	}
+	for v := range h.views {
+		if v.ready && v.mode == "main" {
+			h.sendTo(v, map[string]any{"type": "nativeNotify", "title": c.Meta.Title, "body": body, "conversationId": c.Meta.ID})
+			return
+		}
+	}
+}
