@@ -87,7 +87,7 @@ func hasClaudeCompatSection(toml string) bool {
 var grokArgs = []string{"agent", "--no-leader", "stdio"}
 
 func (grokFlavor) launch(h *Hub, c *Conv, a *Account, wd string) ([]string, []string, error) {
-	return grokArgs, grokEnv(a, map[string]string{"MYRIAGENT_AGENT_CONVERSATION": c.Meta.ID, "PWD": wd}), nil
+	return grokArgs, grokEnv(a, h.agentEnvMap(c, map[string]string{"PWD": wd})), nil
 }
 
 // initializeParams：不提供檔案與終端（grok 用自己的工具），也不宣告互動式資料夾信任

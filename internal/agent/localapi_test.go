@@ -68,6 +68,10 @@ func TestAgentEnvCarriesTokenAndURL(t *testing.T) {
 			t.Fatalf("少了 %s：%v", want, env)
 		}
 	}
+	m := h.agentEnvMap(&Conv{Meta: ConvMeta{ID: "cX"}}, map[string]string{"PWD": "/w"})
+	if m["MYRIAGENT_REMOTE_TOKEN"] != h.localToken("cX") || m["MYRIAGENT_AGENT_CONVERSATION"] != "cX" || m["PWD"] != "/w" {
+		t.Fatalf("ACP 代理的環境變數：%v", m)
+	}
 	if prependPath("/a", "/a:/b") != "/a:/b" || prependPath("/a", "/b") != "/a:/b" || prependPath("/a", "") != "/a" {
 		t.Fatal("prependPath 不對")
 	}

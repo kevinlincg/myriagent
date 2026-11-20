@@ -99,6 +99,7 @@ type acpTool struct {
 	hidden   bool
 	finished bool
 	output   string
+	hooked   bool // 已經呼叫過工具開始的掛鉤（指令內容出來的那一次）
 }
 
 // acpReq 是一張等使用者回應的卡片對應的請求
@@ -660,6 +661,11 @@ func (h *Hub) onAcpTool(c *Conv, p *acpProc, u map[string]any) {
 		return
 	}
 	p.announce(c, id, st)
+	// 工具開始的掛鉤（turnhooks.go；排程的來源記錄等）：指令內容出來時呼叫一次
+	if st.item != nil && !st.hooked && (st.item.Detail != "" || st.item.Title != "") {
+		st.hooked = true
+		h.runToolStartHooks(c, st.item)
+	}
 	status := str(u, "status")
 	// 沒有 status 的更新（補上 kind、標題、差異）content 放的是工具的說明，不是輸出（grok 實測）
 	if status == "" || (str(u, "sessionUpdate") == "tool_call" && status != "completed" && status != "failed") {
@@ -987,6 +993,7 @@ func (h *Hub) onAcpPermission(c *Conv, p *acpProc, m *acp.Message) {
 		it.CanAllowForSession = true
 		it.AllowSessionLabel = firstNonBlank(p.fl.allowSessionLabel(perm.kind), "本對話都允許")
 	}
+	h.requestAttention(c, it, "") // 閃對話、語音通知（speech.go）
 }
 
 func (ap acpProvider) Approve(h *Hub, c *Conv, it *Item, pr *pendingRequest, choice, message string) {

@@ -89,6 +89,20 @@ func (h *Hub) agentEnv(c *Conv) []string {
 	return env
 }
 
+// agentEnvMap：agentEnv 換成 map 再加上 extra（ACP 的代理以 map 組環境變數）；呼叫時持有 h.mu
+func (h *Hub) agentEnvMap(c *Conv, extra map[string]string) map[string]string {
+	m := map[string]string{}
+	for _, kv := range h.agentEnv(c) {
+		if i := strings.IndexByte(kv, '='); i > 0 {
+			m[kv[:i]] = kv[i+1:]
+		}
+	}
+	for k, v := range extra {
+		m[k] = v
+	}
+	return m
+}
+
 // prependPath 把資料夾放到 PATH 的最前面（已經在第一個就不重複）
 func prependPath(dir, path string) string {
 	if path == "" {
