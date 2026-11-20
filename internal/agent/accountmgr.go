@@ -634,7 +634,7 @@ func probeClaudeAccount(in probeInput) probeResult {
 			}
 			r.pendingStatus = in.reason
 		default:
-			res := runTool(in.ctx, in.cliPath, []string{"auth", "status", "--json"}, in.env, ensureDir(in.cacheDir), in.timeout)
+			res := runShort(in.ctx, in.cliPath, []string{"auth", "status", "--json"}, in.env, ensureDir(in.cacheDir), in.timeout)
 			if in.ctx.Err() != nil {
 				return probeResult{}
 			}
@@ -833,14 +833,14 @@ func probeCodexAccount(in probeInput) probeResult {
 	case err != nil:
 		r.stale(err.Error())
 	default:
-		r.usage, r.staleErr = codexSnapshot(limits)
+		r.usage, r.staleErr = codexUsageSnapshot(limits)
 		r.staleSet = r.usage == nil
 	}
 	return r
 }
 
 // codexSnapshot：account/rateLimits/read 的結果 → 快照；看不懂（沒有任何額度桶）回 nil 與原因
-func codexSnapshot(limits map[string]any) (*usageSnapshot, string) {
+func codexUsageSnapshot(limits map[string]any) (*usageSnapshot, string) {
 	windows, credits := parseCodexRateLimits(limits)
 	if len(windows) == 0 && !hasCodexRateLimits(limits) {
 		return nil, "用量回應的格式無法解析"
@@ -951,7 +951,7 @@ func probeAgyAccount(in probeInput) probeResult {
 	email := ""
 	for attempt := 0; attempt < 2; attempt++ {
 		logFile := filepath.Join(logDir, "usage-"+newID("")+".log")
-		res = runTool(in.ctx, in.cliPath, []string{"--log-file", logFile, "-p", "/usage", "--output-format", "json"}, in.env, work, in.timeout)
+		res = runShort(in.ctx, in.cliPath, []string{"--log-file", logFile, "-p", "/usage", "--output-format", "json"}, in.env, work, in.timeout)
 		if b, err := os.ReadFile(logFile); err == nil {
 			email = parseAgySignedInEmail(string(b))
 		}
@@ -987,7 +987,7 @@ func probeAgyAccount(in probeInput) probeResult {
 	for _, w := range windows {
 		if w.Locked {
 			// 只有額度窗耗盡鎖定時才補查一次 AI 點數餘額（避免每次輪詢多起一個 language server）
-			credits = parseAgyCredits(runTool(in.ctx, in.cliPath, []string{"-p", "/credits", "--output-format", "json"}, in.env, work, in.timeout))
+			credits = parseAgyCredits(runShort(in.ctx, in.cliPath, []string{"-p", "/credits", "--output-format", "json"}, in.env, work, in.timeout))
 			break
 		}
 	}

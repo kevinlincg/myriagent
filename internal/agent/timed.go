@@ -220,7 +220,7 @@ func (h *Hub) createTimedConversation(m *schedules.TimedMessage, now time.Time) 
 		return nil, "帳戶已經移除"
 	}
 	if a.status == "notLoggedIn" || a.status == "notInstalled" {
-		return nil, "「" + a.Label + "」" + statusText[a.status]
+		return nil, "「" + a.Label + "」" + a.statusText()
 	}
 	c := h.createConversation(a, schedules.LabelOf(m)+"（"+now.Format("1/2 15:04")+"）", m.Folder)
 	if m.Model != "" {

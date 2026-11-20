@@ -172,7 +172,7 @@ func realPath(p string) string {
 
 // probeVersion：跑 --version（最多 15 秒）；回版本與錯誤（跑不起來的原因）
 func probeVersion(path string) (string, string) {
-	res := runTool(context.Background(), path, []string{"--version"}, commandEnv(nil), userHome(), 15*time.Second)
+	res := runShort(context.Background(), path, []string{"--version"}, commandEnv(nil), userHome(), 15*time.Second)
 	if v := parseCLIVersion(res.stdout); v != "" {
 		return v, ""
 	}
@@ -486,12 +486,12 @@ func (h *Hub) startCLIUpdate(v *View, p string, automatic bool) {
 		var res cliResult
 		var errText, note string
 		if route == "npm" {
-			res = runTool(context.Background(), npm, []string{"install", "-g", npmPackageOf(p) + "@latest"}, commandEnv(nil), userHome(), 30*time.Minute)
+			res = runShort(context.Background(), npm, []string{"install", "-g", npmPackageOf(p) + "@latest"}, commandEnv(nil), userHome(), 30*time.Minute)
 			if res.exitCode != 0 {
 				errText = "npm 更新失敗：" + describeCLIFailure(res.stdout, res.stderr)
 			}
 		} else {
-			res = runTool(context.Background(), path, []string{"update"}, commandEnv(nil), userHome(), 30*time.Minute)
+			res = runShort(context.Background(), path, []string{"update"}, commandEnv(nil), userHome(), 30*time.Minute)
 		}
 		after, _ := probeVersion(path)
 		if route != "npm" {
@@ -559,7 +559,7 @@ func (h *Hub) startCLIInstall(v *View, p string) {
 		s.busy, s.progress, s.actionError = true, "npm 正在安裝…", ""
 		h.pushCLI()
 		go func() {
-			res := runTool(context.Background(), npm, []string{"install", "-g", codexNpmPackage + "@latest"}, commandEnv(nil), userHome(), 30*time.Minute)
+			res := runShort(context.Background(), npm, []string{"install", "-g", codexNpmPackage + "@latest"}, commandEnv(nil), userHome(), 30*time.Minute)
 			errText := ""
 			if res.exitCode != 0 {
 				errText = "npm 安裝失敗：" + describeCLIFailure(res.stdout, res.stderr)

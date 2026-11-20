@@ -331,7 +331,7 @@ func (h *Hub) loginAntigravity(ctx context.Context, a *Account, in loginInput, p
 			return false, nil
 		case <-time.After(loginPollInterval):
 		}
-		res := runTool(ctx, in.cliPath, []string{"models"}, in.env, work, 30*time.Second)
+		res := runShort(ctx, in.cliPath, []string{"models"}, in.env, work, 30*time.Second)
 		if st, _ := evaluateAgyModels(res.exitCode, res.stdout, res.stderr, res.timedOut); st == "ready" {
 			return true, nil
 		}
@@ -386,7 +386,7 @@ func (h *Hub) startLogout(a *Account) {
 			if provider == "Claude" {
 				args = []string{"auth", "logout"}
 			}
-			res := runTool(ctx, path, args, env, ensureDir(r.cacheDir), 30*time.Second)
+			res := runShort(ctx, path, args, env, ensureDir(r.cacheDir), 30*time.Second)
 			if res.exitCode != 0 && !res.timedOut {
 				log.Printf("登出 %s 失敗：%s", a.Label, truncateEllipsis(res.combined(), 200))
 			}
@@ -477,7 +477,7 @@ func (h *Hub) useResetCredit(v *View, a *Account) {
 		defer h.kick()
 		a.rt.resetCreditBusy = false
 		if !a.rt.removed && limits != nil {
-			if s, _ := codexSnapshot(limits); s != nil {
+			if s, _ := codexUsageSnapshot(limits); s != nil {
 				h.storeUsage(a, s)
 			}
 		}

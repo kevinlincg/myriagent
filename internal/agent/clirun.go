@@ -30,7 +30,7 @@ type cliResult struct {
 func (r cliResult) combined() string { return strings.TrimSpace(r.stdout + "\n" + r.stderr) }
 
 // runCLI 執行一個子指令。timeout<=0＝不設時限；ctx 取消時一樣結束程序（回 exitCode -1）
-func runTool(ctx context.Context, path string, args []string, env []string, dir string, timeout time.Duration) cliResult {
+func runShort(ctx context.Context, path string, args []string, env []string, dir string, timeout time.Duration) cliResult {
 	if timeout > 0 {
 		var cancel context.CancelFunc
 		ctx, cancel = context.WithTimeout(ctx, timeout)

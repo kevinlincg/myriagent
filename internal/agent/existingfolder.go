@@ -223,11 +223,6 @@ func pathExists(p string) bool {
 	return err == nil
 }
 
-func dirExists(p string) bool {
-	fi, err := os.Stat(p)
-	return err == nil && fi.IsDir()
-}
-
 // looksLikeConfigFolder：資料夾裡有這種 CLI 用過的痕跡，或是空的（空的可以當成新的設定資料夾）。讀不到內容當成不是
 func looksLikeConfigFolder(p, dir string) bool {
 	if hasConfigMarker(p, dir, pathExists) {

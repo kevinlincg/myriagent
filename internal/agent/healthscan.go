@@ -357,15 +357,6 @@ func (sc healthScanner) scanClaude(s *accountScan) {
 	s.McpServers = mcp
 }
 
-func sortedKeys(m map[string]any) []string {
-	out := make([]string, 0, len(m))
-	for k := range m {
-		out = append(out, k)
-	}
-	sort.Strings(out)
-	return out
-}
-
 // readInstalledPlugins：installed_plugins.json（v2：plugins 的每個 id 是安裝紀錄的陣列）→ id 對安裝位置
 func readInstalledPlugins(path string) map[string]string {
 	out := map[string]string{}

@@ -309,7 +309,7 @@ func envList(m map[string]string) []string {
 	return out
 }
 
-func containsFold(list []string, s string) bool {
+func containsFoldList(list []string, s string) bool {
 	for _, x := range list {
 		if strings.EqualFold(x, s) {
 			return true
@@ -323,7 +323,7 @@ func containsFold(list []string, s string) bool {
 func applyToolEnv(env map[string]string) {
 	for k := range env {
 		u := strings.ToUpper(k)
-		if containsFold(secretVariables, k) ||
+		if containsFoldList(secretVariables, k) ||
 			(strings.HasPrefix(u, "CLAUDE") && u != "CLAUDE_CONFIG_DIR" && u != "CLAUDE_CODE_GIT_BASH_PATH") ||
 			strings.HasPrefix(u, "ANTIGRAVITY_") || u == "MYRIAGENT_AGENT_CONVERSATION" {
 			delete(env, k)
@@ -340,14 +340,14 @@ func applyAccountEnv(a *Account, env map[string]string) {
 	switch a.Provider {
 	case "Antigravity":
 		for k := range env {
-			if containsFold(antigravitySecretVariables, k) {
+			if containsFoldList(antigravitySecretVariables, k) {
 				delete(env, k)
 			}
 		}
 		env["AGY_CLI_DISABLE_AUTO_UPDATE"] = "true"
 	case "Grok":
 		for k := range env {
-			if containsFold(grokSecretVariables, k) {
+			if containsFoldList(grokSecretVariables, k) {
 				delete(env, k)
 			}
 		}

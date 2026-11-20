@@ -289,8 +289,3 @@ func registerInitField(key string, f func(h *Hub, v *View) any) { initExtras[key
 var startHooks []func(h *Hub)
 
 func registerStartHook(f func(h *Hub)) { startHooks = append(startHooks, f) }
-
-// shutdownHooks：結束時各功能要做的收尾（存檔；registerShutdownHook 登記；呼叫時持有 h.mu）
-var shutdownHooks []func(h *Hub)
-
-func registerShutdownHook(f func(h *Hub)) { shutdownHooks = append(shutdownHooks, f) }
