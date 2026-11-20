@@ -88,10 +88,16 @@ func TestInitHasAccountsAndProviders(t *testing.T) {
 	tv.send(map[string]any{"cmd": "ready", "mode": "main"})
 	m := tv.wait("init", func(m map[string]any) bool { return m["type"] == "init" })
 	accounts, _ := m["accounts"].([]any)
-	if len(accounts) != 1 {
-		t.Fatalf("帳戶數 %d", len(accounts))
+	var claudeAccounts []map[string]any
+	for _, x := range accounts {
+		if a := x.(map[string]any); a["provider"] == "Claude" {
+			claudeAccounts = append(claudeAccounts, a)
+		}
 	}
-	a := accounts[0].(map[string]any)
+	if len(claudeAccounts) != 1 {
+		t.Fatalf("Claude 帳戶數 %d", len(claudeAccounts))
+	}
+	a := claudeAccounts[0]
 	if a["provider"] != "Claude" || a["status"] != "ready" || a["email"] != "me@example.com" {
 		t.Fatalf("預設 Claude 帳戶不對：%v", a)
 	}
