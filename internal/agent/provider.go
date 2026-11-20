@@ -73,6 +73,7 @@ func (h *Hub) endTurn(c *Conv) {
 		}
 	}
 	c.changed()
+	h.fireConvEvent(convTurnEnded, nil, c)
 	if len(c.queue) > 0 {
 		next := c.queue[0]
 		c.queue = c.queue[1:]

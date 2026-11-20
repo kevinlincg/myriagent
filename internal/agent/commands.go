@@ -42,6 +42,9 @@ func (h *Hub) handle(v *View, msg map[string]any) {
 					cc.unread = false
 					cc.dirtyList = true
 				}
+				if cc := h.convs[s]; cc != nil && v.open[s] {
+					h.fireConvEvent(convVisible, v, cc)
+				}
 			}
 		}
 	case "newConversation":
@@ -57,6 +60,7 @@ func (h *Hub) handle(v *View, msg map[string]any) {
 			c.dirtyList = true
 		}
 		h.sendTo(v, h.conversationMsg(c, nil))
+		h.fireConvEvent(convOpened, v, c)
 	case "close":
 		delete(v.open, id)
 		delete(v.visible, id)
@@ -124,6 +128,7 @@ func (h *Hub) handle(v *View, msg map[string]any) {
 			c.Meta.CustomFolder, c.Meta.WorkingDirectory = false, ""
 			h.restartSession(c)
 			c.changed()
+			h.fireConvEvent(convFolderChanged, nil, c)
 		}
 	case "chooseFolder":
 		if c != nil {
@@ -259,6 +264,7 @@ func (h *Hub) newConversation(v *View, accountID string, paneID any) {
 	h.convs[c.Meta.ID] = c
 	v.open[c.Meta.ID] = true
 	h.sendTo(v, h.conversationMsg(c, paneID))
+	h.fireConvEvent(convOpened, v, c)
 }
 
 func (h *Hub) send(v *View, c *Conv, text string) {
@@ -404,6 +410,7 @@ func (h *Hub) setFolder(v *View, c *Conv, path string) {
 	h.rememberFolder(path)
 	h.restartSession(c)
 	c.changed()
+	h.fireConvEvent(convFolderChanged, nil, c)
 }
 
 func (h *Hub) rememberFolder(path string) {

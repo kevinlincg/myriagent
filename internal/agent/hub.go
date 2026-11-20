@@ -31,6 +31,9 @@ type Hub struct {
 	localOnce   sync.Once
 	localSecret []byte
 	localURL    string
+
+	// 執行列（launch.go）
+	launch *launchHub
 }
 
 // View 是一個連上的網頁（一個視窗或瀏覽器分頁）
@@ -254,6 +257,9 @@ func (h *Hub) flushLoop() {
 // shutdown 停掉所有 CLI、存檔
 func (h *Hub) shutdown() {
 	h.mu.Lock()
+	for _, f := range shutdownHooks {
+		f(h)
+	}
 	closing := 0
 	for _, c := range h.convs {
 		c.save(h)
