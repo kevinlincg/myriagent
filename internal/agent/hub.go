@@ -32,8 +32,9 @@ type Hub struct {
 	localSecret []byte
 	localURL    string
 
-	// 執行列（launch.go）
+	// 執行列（launch.go）與工作資料夾的 git 狀態（repostatus.go）
 	launch *launchHub
+	repo   *repoHub
 }
 
 // View 是一個連上的網頁（一個視窗或瀏覽器分頁）
