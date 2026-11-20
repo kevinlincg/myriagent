@@ -352,12 +352,13 @@ func TestGrokPlanApprovalSwitchesMode(t *testing.T) {
 	tv.send(map[string]any{"cmd": "approvePlan", "conversationId": id, "itemId": itemOf(card)["id"], "choice": "acceptEdits"})
 	tv.wait("照計畫執行", hasItem("Assistant", "開始執行"))
 	tv.wait("一輪結束", turnEnded)
-	waitLog(t, logFile, "session/set_mode", `"modeId":"default"`)
+	// grok 同意計畫後自己回到 default（current_mode_update）：app 記下來，不必再送 set_mode default（送了也無妨，看先後）
 	h.mu.Lock()
 	perm := h.convs[id].Meta.Permission
+	plan := h.convs[id].acp().applied.val("plan")
 	h.mu.Unlock()
-	if perm != "AcceptEdits" {
-		t.Fatalf("同意計畫後權限模式是 %q", perm)
+	if perm != "AcceptEdits" || plan != "default" {
+		t.Fatalf("同意計畫後權限模式是 %q、程序上的模式是 %q", perm, plan)
 	}
 }
 
@@ -517,6 +518,58 @@ func TestACPHeaderSteerFalseAndModes(t *testing.T) {
 			if modes := hd["permissionModes"].([]any); len(modes) != 5 {
 				t.Fatalf("權限模式 %d 個", len(modes))
 			}
+		})
+	}
+}
+
+// 代理自己進入規劃模式後，使用者換回每步詢問要真的送出（不能被「已套用」的記錄擋掉）
+func TestACPAgentModeChangeThenUserSwitchBack(t *testing.T) {
+	for _, f := range acpFlavors {
+		t.Run(f.key, func(t *testing.T) {
+			h, tv, acc, logFile := newACPTestHub(t, f.fake, f.key)
+			id := tv.draftFor(acc, "p1")
+			tv.send(map[string]any{"cmd": "send", "conversationId": id, "text": "你自己規劃"})
+			tv.wait("一輪結束", turnEnded)
+			h.mu.Lock()
+			perm := h.convs[id].Meta.Permission
+			h.mu.Unlock()
+			if perm != "Plan" {
+				t.Fatalf("代理進入規劃模式後畫面是 %q", perm)
+			}
+			before := countLog(logFile, "session/set_mode", `"modeId":"default"`)
+			tv.send(map[string]any{"cmd": "setOption", "conversationId": id, "key": "permission", "value": "Ask"})
+			deadline := time.Now().Add(10 * time.Second)
+			for countLog(logFile, "session/set_mode", `"modeId":"default"`) == before {
+				if time.Now().After(deadline) {
+					t.Fatalf("換回每步詢問沒有送出 set_mode default；記錄：\n%s", strings.Join(fakeLog(logFile), "\n"))
+				}
+				time.Sleep(20 * time.Millisecond)
+			}
+		})
+	}
+}
+
+// 對話一開始就指定模型與推理強度，之後換回「預設」要切回代理的預設模型與強度
+func TestACPSwitchBackToDefaultModelAndEffort(t *testing.T) {
+	want := map[string][4]string{
+		// 指定的模型、換回預設時送的方法、預設模型、推理強度的設定 id
+		"Grok":        {"grok-code", "session/set_config_option", `"value":"grok-4"`, "reasoning_effort"},
+		"Antigravity": {"claude-sonnet-4-6", "session/set_model", `"modelId":"gemini-3-flash"`, "thought_level"},
+	}
+	for _, f := range acpFlavors {
+		t.Run(f.key, func(t *testing.T) {
+			w := want[f.key]
+			_, tv, acc, logFile := newACPTestHub(t, f.fake, f.key)
+			id := tv.draftFor(acc, "p1")
+			tv.send(map[string]any{"cmd": "setOption", "conversationId": id, "key": "model", "value": w[0]})
+			tv.send(map[string]any{"cmd": "setOption", "conversationId": id, "key": "effort", "value": "low"})
+			tv.send(map[string]any{"cmd": "send", "conversationId": id, "text": "你好"})
+			tv.wait("一輪結束", turnEnded)
+			waitLog(t, logFile, "session/set_config_option", `"configId":"`+w[3]+`"`, `"value":"low"`)
+			tv.send(map[string]any{"cmd": "setOption", "conversationId": id, "key": "model", "value": "default"})
+			waitLog(t, logFile, w[1], w[2])
+			tv.send(map[string]any{"cmd": "setOption", "conversationId": id, "key": "effort", "value": "default"})
+			waitLog(t, logFile, "session/set_config_option", `"configId":"`+w[3]+`"`, `"value":"high"`)
 		})
 	}
 }

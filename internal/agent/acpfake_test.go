@@ -172,6 +172,9 @@ func (s *fakeACPServer) onRequest(id json.RawMessage, method string, params map[
 		}
 		s.resumed = false
 		res := map[string]any{"sessionId": s.sid, "models": s.models()}
+		if s.flavor == "grok" {
+			res["configOptions"] = []any{map[string]any{"id": "reasoning_effort", "currentValue": "high", "options": []any{map[string]any{"value": "low"}, map[string]any{"value": "high"}}}}
+		}
 		if s.flavor == "agy" {
 			res["modes"] = map[string]any{"currentModeId": "default"}
 			res["configOptions"] = []any{map[string]any{"id": "thought_level", "currentValue": "high", "options": []any{map[string]any{"value": "low"}, map[string]any{"value": "high"}}}}
@@ -275,6 +278,11 @@ func (s *fakeACPServer) runScript(text string) {
 		}
 		s.say("慢慢來")
 		s.update(s.toolCall("s1", "run_terminal_command", "execute", map[string]any{"command": "sleep 100", "CommandLine": "sleep 100"}, map[string]any{"status": "in_progress"}))
+	case strings.Contains(text, "自己規劃"):
+		// 代理自己進入規劃模式（grok 的 enter_plan_mode、agy 換模式）
+		s.emit(map[string]any{"jsonrpc": "2.0", "method": "session/update", "params": map[string]any{"sessionId": s.sid, "update": map[string]any{"sessionUpdate": "current_mode_update", "currentModeId": "plan"}}})
+		s.say("我先規劃")
+		s.finish("end_turn", 10, 5)
 	case strings.Contains(text, "崩潰"):
 		s.out.Flush()
 		fmt.Fprintln(os.Stderr, "boom")
