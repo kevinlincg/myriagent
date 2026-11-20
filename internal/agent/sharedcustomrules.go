@@ -533,7 +533,7 @@ func tomlScanValue(line string, i *int, st *tomlValueState) {
 func codexMcpServerNames(toml string) []string {
 	var out []string
 	add := func(n string) {
-		if n != "" && !containsString(out, n) {
+		if n != "" && !contains(out, n) {
 			out = append(out, n)
 		}
 	}
@@ -676,7 +676,7 @@ func codexSharedMcpOverrides(sourceToml string, exclude []string) []string {
 	}
 	var out []string
 	for _, e := range entries {
-		if unsupported[e.server] || containsString(exclude, e.server) {
+		if unsupported[e.server] || contains(exclude, e.server) {
 			continue
 		}
 		k := "mcp_servers." + e.server

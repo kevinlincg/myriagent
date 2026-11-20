@@ -612,8 +612,13 @@ func TestAccountsRecoveredFromFolders(t *testing.T) {
 	_ = os.WriteFile(accountsFile(root), []byte("{壞掉"), 0o600)
 	h := &Hub{root: root, convs: map[string]*Conv{}, clis: map[string]*cliInfo{}}
 	h.loadAccounts()
-	if len(h.accounts) != 2 || h.accounts[0].ID != id || h.accounts[1].ID != "local-claude" {
+	if len(h.accounts) < 2 || h.accounts[0].ID != id || h.accounts[0].ConfigDir != filepath.Join(root, "accounts", id, "claude") || h.account("local-claude") == nil {
 		t.Fatalf("%+v", h.accounts)
+	}
+	for _, a := range h.accounts {
+		if a.ID == gone {
+			t.Fatal("留有待刪標記的資料夾不能還原")
+		}
 	}
 	matches, _ := filepath.Glob(accountsFile(root) + ".bad-*")
 	if len(matches) != 1 {

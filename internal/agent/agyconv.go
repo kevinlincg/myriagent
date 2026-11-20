@@ -51,7 +51,8 @@ func agyEnv(a *Account, extra map[string]string) []string {
 		}
 		unset = u
 	}
-	return childEnv(set, unset...)
+	// API Key 與指向別處登入的變數一律不傳（accountrules.go 的 credentialVariables）
+	return childEnv(set, append(unset, credentialVariables()...)...)
 }
 
 var agyACPArgs = []string{"acp", "--stdio"}

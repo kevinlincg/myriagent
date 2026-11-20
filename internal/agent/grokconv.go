@@ -44,7 +44,8 @@ func grokEnv(a *Account, extra map[string]string) []string {
 		ensureGrokIsolatedHome(a.ConfigDir)
 		set["GROK_HOME"] = a.ConfigDir
 	}
-	return childEnv(set)
+	// API Key 與指向別處登入的變數一律不傳（accountrules.go 的 credentialVariables）
+	return childEnv(set, credentialVariables()...)
 }
 
 // grokIsolatedConfig：隔離帳戶預先寫好的 config.toml：標記「Claude 設定已匯入過」，grok 才不會讀使用者的 ~/.claude

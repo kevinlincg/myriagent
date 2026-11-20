@@ -25,7 +25,7 @@ func (h *Hub) prepareAccountLaunch(a *Account, workDir string) sharedLaunch {
 		return sharedLaunch{}
 	}
 	if a.agyShadowed() {
-		prepareAntigravityHome(a.ConfigDir)
+		prepareAgyHome(a.ConfigDir)
 	}
 	if f := sharedLaunchHook; f != nil {
 		return f(h, a, workDir)
