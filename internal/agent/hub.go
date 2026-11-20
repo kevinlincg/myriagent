@@ -24,6 +24,7 @@ type Hub struct {
 	views    map[*View]struct{}
 	nextView int
 	clis     map[string]*cliInfo
+	acct     *acctRuntime // 帳戶、用量與 CLI 管理的相依（h.ar()；accountmgr.go）
 
 	flushKick chan struct{}
 

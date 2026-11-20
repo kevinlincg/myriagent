@@ -26,6 +26,9 @@ type Usage struct {
 	Windows   []UsageWindow `json:"windows"`
 	Credits   *string       `json:"credits"`
 	Note      *string       `json:"note"`
+	// Codex 的免費重置次數與最早到期（毫秒）；不知道為 null
+	ResetCredits         *int   `json:"resetCredits"`
+	ResetCreditExpiresAt *int64 `json:"resetCreditExpiresAt"`
 }
 
 type UsageWindow struct {
@@ -86,6 +89,28 @@ type CliView struct {
 	Busy      bool    `json:"busy"`
 	Status    string  `json:"status"`
 	Error     *string `json:"error"`
+	// 以下照 web-protocol 的 CliView（climgr.go）
+	Provider        string         `json:"provider,omitempty"`
+	Checking        bool           `json:"checking"`
+	LatestError     *string        `json:"latestError"`
+	UpdateAvailable bool           `json:"updateAvailable"`
+	InstallKind     *string        `json:"installKind"`
+	AutoUpdate      bool           `json:"autoUpdate"`
+	Progress        *string        `json:"progress"`
+	LastCheckedAt   *int64         `json:"lastCheckedAt"`
+	CheckedAt       *int64         `json:"checkedAt"`
+	Changing        bool           `json:"changing"`
+	InstallBroken   *string        `json:"installBroken"`
+	LastChange      *CliChangeView `json:"lastChange"`
+	RestartPolicy   string         `json:"restartPolicy,omitempty"`
+}
+
+// CliChangeView：最近一次已穩定的換版
+type CliChangeView struct {
+	From   *string `json:"from"`
+	To     string  `json:"to"`
+	Origin string  `json:"origin"` // "app" | "external"
+	At     int64   `json:"at"`
 }
 
 type ConversationSummary struct {
