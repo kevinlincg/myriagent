@@ -210,6 +210,11 @@ func (h *Hub) onClaudeMessage(convID string, sess *claude.Session, msg map[strin
 		h.onClaudeResult(c, msg)
 	case "control_request":
 		h.onClaudeControlRequest(c, msg)
+	case "rate_limit_event":
+		// 對話中的額度回報即時合併進帳戶的用量（accountmgr.go）
+		if info, ok := msg["rate_limit_info"].(map[string]any); ok {
+			h.accountRateLimit(c.Meta.AccountID, info)
+		}
 	}
 	h.kick()
 }
@@ -458,6 +463,7 @@ func (h *Hub) onClaudeResult(c *Conv, msg map[string]any) {
 		}
 		c.errorItem(text)
 	}
+	h.accountTurnCompleted(c.Meta.AccountID) // 10 秒後查一次用量
 	h.endTurn(c)
 }
 
