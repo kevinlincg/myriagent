@@ -340,6 +340,7 @@ func TestSystemdCalendar(t *testing.T) {
 		"*:0/15":               "0/15 * * * *",
 		"Sat,Sun *-*-01 08:00": "0 8 1 * 6,0",
 		"weekly":               "0 0 * * 1",
+		"Mon..Sun 08:00":       "0 8 * * 1-7",
 		"*-01,07-01 00:00:00":  "0 0 1 1,7 *",
 	}
 	for in, want := range cases {

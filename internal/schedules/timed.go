@@ -47,8 +47,8 @@ type TimedMessage struct {
 	CreatedByTitle    string `json:"CreatedByTitle,omitempty"`
 	CreatedByProvider string `json:"CreatedByProvider,omitempty"`
 	// LastScheduledAt 上一次原定的時間（下一次從它之後算）
-	LastScheduledAt *time.Time `json:"LastScheduledAt,omitempty"`
-	Runs            []TimedRun `json:"Runs"`
+	LastScheduledAt *time.Time  `json:"LastScheduledAt,omitempty"`
+	Runs            []*TimedRun `json:"Runs"`
 }
 
 // Due 到點時要做什麼
@@ -558,11 +558,12 @@ func Upcoming(m *TimedMessage, from, to time.Time) []time.Time {
 
 // AddRun 加一筆送出紀錄（留最近 30 筆）
 func AddRun(m *TimedMessage, run TimedRun) *TimedRun {
-	m.Runs = append(m.Runs, run)
+	r := &run
+	m.Runs = append(m.Runs, r)
 	if len(m.Runs) > KeepTimedRuns {
-		m.Runs = append([]TimedRun{}, m.Runs[len(m.Runs)-KeepTimedRuns:]...)
+		m.Runs = append([]*TimedRun{}, m.Runs[len(m.Runs)-KeepTimedRuns:]...)
 	}
-	return &m.Runs[len(m.Runs)-1]
+	return r
 }
 
 // OutcomeName 一輪的結果寫回送出紀錄的 outcome
@@ -596,7 +597,7 @@ func LevelOfOutcome(outcome string) string {
 }
 
 // OutcomeText 結果的說明
-func OutcomeText(r TimedRun) string {
+func OutcomeText(r *TimedRun) string {
 	switch r.Outcome {
 	case "sent":
 		return "已送出"

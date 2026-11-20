@@ -65,7 +65,7 @@ func (h *Hub) startTurn(c *Conv, text string) {
 
 // endTurn 是各家在一輪結束時呼叫的共用收尾：清掉串流狀態、標未讀、接著送佇列
 func (h *Hub) endTurn(c *Conv) {
-	h.onTurnEndedAttention(c) // 閃對話、語音通知（speech.go；要在清掉 stopping 之前）
+	outcome := turnOutcome(c)
 	c.running, c.stopping = false, false
 	c.status = ""
 	c.Meta.UpdatedAt = nowMs()
@@ -77,10 +77,9 @@ func (h *Hub) endTurn(c *Conv) {
 	}
 	c.changed()
 	h.fireConvEvent(convTurnEnded, nil, c)
-	for _, f := range turnEndHooks {
-		f(h, c)
-	}
-	if len(c.queue) > 0 {
+	// 各功能的一輪結束（turnhooks.go）：在接著送佇列之前
+	h.runTurnEndHooks(c, outcome)
+	if len(c.queue) > 0 && !c.running {
 		next := c.queue[0]
 		c.queue = c.queue[1:]
 		c.dirtyComp = true

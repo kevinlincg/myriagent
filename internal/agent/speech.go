@@ -336,20 +336,18 @@ func (h *Hub) announceAttention(c *Conv, text string) {
 	}
 }
 
-// onTurnEndedAttention：一輪結束（endTurn 在清掉狀態之前呼叫；持有 h.mu）。使用者按停止的那一輪不念；
-// 這一輪有錯誤項目＝失敗（念錯誤的第一行，中文才念）；否則完成（接代理最後一則回覆的重點）
-func (h *Hub) onTurnEndedAttention(c *Conv) {
-	if c.stopping {
+// onTurnEndedAttention：一輪結束（turnhooks.go 的 registerTurnEndHook；持有 h.mu）。使用者按停止的那一輪不念；
+// 失敗念錯誤的第一行（中文才念）；完成接代理最後一則回覆的重點
+func (h *Hub) onTurnEndedAttention(c *Conv, outcome string) {
+	switch outcome {
+	case turnInterrupted:
 		return
-	}
-	for i := len(c.Items) - 1; i >= 0; i-- {
-		it := c.Items[i]
-		if it.Kind == "User" {
-			break
-		}
-		if it.Kind == "Error" {
-			h.announceAttention(c, voiceFailed(c.Meta.Title, it.Text))
-			return
+	case turnFailed:
+		for i := len(c.Items) - 1; i >= 0; i-- {
+			if it := c.Items[i]; it.Kind == "Error" {
+				h.announceAttention(c, voiceFailed(c.Meta.Title, it.Text))
+				return
+			}
 		}
 	}
 	h.announceAttention(c, voiceCompleted(c.Meta.Title, lastReplyText(c)))
@@ -386,6 +384,7 @@ func (h *Hub) requestAttention(c *Conv, it *Item, plan string) {
 }
 
 func init() {
+	registerTurnEndHook(func(h *Hub, c *Conv, outcome string) { h.onTurnEndedAttention(c, outcome) })
 	// 打開時念一句試聽（使用者馬上知道聲音與音量）；關掉時停下正在念的
 	registerSettingHook("voiceNotifications", func(h *Hub, before, value any) any {
 		on, _ := value.(bool)

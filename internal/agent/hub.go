@@ -35,6 +35,8 @@ type Hub struct {
 	// 執行列（launch.go）與工作資料夾的 git 狀態（repostatus.go）
 	launch *launchHub
 	repo   *repoHub
+	// 排程頁與定時訊息（schedules.go、timed.go）；沒掛讀取器是 nil
+	sched *scheduleHub
 }
 
 // View 是一個連上的網頁（一個視窗或瀏覽器分頁）
@@ -286,15 +288,3 @@ func registerInitField(key string, f func(h *Hub, v *View) any) { initExtras[key
 var startHooks []func(h *Hub)
 
 func registerStartHook(f func(h *Hub)) { startHooks = append(startHooks, f) }
-
-// turnStartHooks／turnEndHooks：一輪開始、結束時各功能要做的事（registerTurnHook 登記；呼叫時持有 h.mu）
-var turnStartHooks, turnEndHooks []func(h *Hub, c *Conv)
-
-func registerTurnHook(start, end func(h *Hub, c *Conv)) {
-	if start != nil {
-		turnStartHooks = append(turnStartHooks, start)
-	}
-	if end != nil {
-		turnEndHooks = append(turnEndHooks, end)
-	}
-}

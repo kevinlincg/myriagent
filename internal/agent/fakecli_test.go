@@ -44,7 +44,14 @@ func fakeClaude() {
 	in.Buffer(make([]byte, 1<<20), 64<<20)
 	out := bufio.NewWriter(os.Stdout)
 	var args = strings.Join(os.Args[1:], " ")
-	emit(out, map[string]any{"type": "system", "subtype": "init", "session_id": "s", "permissionMode": "default", "args": args})
+	// 同真的 CLI：init 回報啟動時的 --permission-mode
+	mode := "default"
+	for i, a := range os.Args {
+		if a == "--permission-mode" && i+1 < len(os.Args) {
+			mode = os.Args[i+1]
+		}
+	}
+	emit(out, map[string]any{"type": "system", "subtype": "init", "session_id": "s", "permissionMode": mode, "args": args})
 	turn := 0
 	waiting := map[string]string{} // control request id → 劇本
 	for in.Scan() {

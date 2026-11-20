@@ -149,22 +149,28 @@ func TestLaunchdReaderLogRotation(t *testing.T) {
 	line := func(ts, code string) string {
 		return ts + ".1 (gui/501/com.me.x [1]) <Notice>: exited due to exit(" + code + ")\n"
 	}
-	_ = os.WriteFile(cur, []byte(line("2026-11-19 09:00:00", "1")), 0o644)
+	// 真的記錄檔開頭一定超過 96 bytes（輪替以開頭判斷）
+	pad := "2026-11-19 08:59:59.000001 (system/com.apple.something [1]) <Notice>: Service only ran for 0 seconds. Pushing respawn out.\n"
+	_ = os.WriteFile(cur, []byte(pad+line("2026-11-19 09:00:00", "1")), 0o644)
 	r := &LaunchdReader{Runner: &fakeRunner{}, UID: 501, LogDir: logDir, Folders: []LaunchdFolder{}}
 	r.mu.Lock()
 	r.readLog(context.Background())
 	r.mu.Unlock()
 	// 接著寫一行
 	f, _ := os.OpenFile(cur, os.O_APPEND|os.O_WRONLY, 0)
-	_, _ = f.WriteString(line("2026-11-19 10:00:00", "2"))
+	_, _ = f.WriteString(strings.Replace(line("2026-11-19 10:00:00", "2"), "com.me.x", "com.me.y", 1))
 	f.Close()
 	// 輪替：舊的改名、新檔開始
 	_ = os.Rename(cur, filepath.Join(logDir, "launchd.log.1"))
-	_ = os.WriteFile(cur, []byte(line("2026-11-19 11:00:00", "3")), 0o644)
+	_ = os.WriteFile(cur, []byte(strings.Replace(pad, "08:59:59", "10:59:59", 1)+line("2026-11-19 11:00:00", "3")), 0o644)
 	r.mu.Lock()
 	r.readLog(context.Background())
 	got := r.runs["gui/501/com.me.x"]
+	y := r.runs["gui/501/com.me.y"]
 	r.mu.Unlock()
+	if y.Code == nil || *y.Code != 2 {
+		t.Fatalf("輪替出去的那份剩下的要先讀完：%+v", y)
+	}
 	if got.Code == nil || *got.Code != 3 || !got.FinishedAt.Equal(time.Date(2026, 11, 19, 11, 0, 0, 0, time.Local)) {
 		t.Fatalf("輪替後要接著讀到最新的：%+v", got)
 	}
