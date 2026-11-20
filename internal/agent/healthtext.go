@@ -197,7 +197,7 @@ func findImports(text string) []string {
 				continue
 			}
 			if path[0] == '~' || strings.ContainsAny(path, `/\.`) {
-				if !containsString(result, path) {
+				if !contains(result, path) {
 					result = append(result, path)
 				}
 			}
@@ -333,7 +333,7 @@ func relativeLinks(body string) []string {
 			if u, err := url.PathUnescape(target); err == nil {
 				target = u
 			}
-			if !containsString(result, target) {
+			if !contains(result, target) {
 				result = append(result, target)
 			}
 		}
@@ -504,7 +504,7 @@ func tomlTableNames(toml, prefix string) []string {
 			}
 			name = strings.TrimSpace(rest)
 		}
-		if name != "" && !containsString(names, name) {
+		if name != "" && !contains(names, name) {
 			names = append(names, name)
 		}
 	}

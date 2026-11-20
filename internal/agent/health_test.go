@@ -2,7 +2,6 @@ package agent
 
 import (
 	"encoding/json"
-	"os"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -236,16 +235,6 @@ func newHealthHub(t *testing.T) (*Hub, *testView, string) {
 		return nil
 	})
 	return h, tv, home
-}
-
-func writeFile(t *testing.T, p, content string) {
-	t.Helper()
-	if err := os.MkdirAll(filepath.Dir(p), 0o700); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(p, []byte(content), 0o600); err != nil {
-		t.Fatal(err)
-	}
 }
 
 func TestHealthCheckAndFix(t *testing.T) {

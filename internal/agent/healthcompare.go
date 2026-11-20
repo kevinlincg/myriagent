@@ -434,7 +434,7 @@ func buildMergePrompt(r instructionsReport, now time.Time) string {
 		}
 		var secs []string
 		for _, u := range c.Missing {
-			if u.Section != "" && !containsString(secs, u.Section) && len(secs) < 8 {
+			if u.Section != "" && !contains(secs, u.Section) && len(secs) < 8 {
 				secs = append(secs, u.Section)
 			}
 		}

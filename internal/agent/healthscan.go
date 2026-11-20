@@ -446,7 +446,7 @@ func pluginMcpServers(pluginDir string) []string {
 			servers = root
 		}
 		for _, n := range sortedKeys(servers) {
-			if _, isObj := servers[n].(map[string]any); isObj && !containsString(names, n) {
+			if _, isObj := servers[n].(map[string]any); isObj && !contains(names, n) {
 				names = append(names, n)
 			}
 		}
@@ -520,7 +520,7 @@ func (sc healthScanner) addWithImports(s *accountScan, file, kind string, depth 
 		}
 		if fileExists(resolved) {
 			sc.addWithImports(s, resolved, "import", depth+1, seen)
-		} else if !dirExists(resolved) && looksLikeImportFile(imp) && !containsString(s.MissingImports, imp) {
+		} else if !dirExists(resolved) && looksLikeImportFile(imp) && !contains(s.MissingImports, imp) {
 			s.MissingImports = append(s.MissingImports, imp)
 		}
 	}
