@@ -168,6 +168,7 @@ func (c *Conv) errorItem(text string) {
 	it := c.addItem("Error")
 	it.Status = "Failed"
 	it.HTML = render.Markdown(text)
+	it.Text = text // 原文（語音通知念失敗時取第一行）
 }
 
 // flush 把累積的變更送給開著這個對話的 view；回傳清單是不是要重送

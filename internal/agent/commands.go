@@ -499,10 +499,19 @@ func (h *Hub) applySetting(v *View, key string, value any) {
 			}
 		}
 	}
+	if f := settingHooks[key]; f != nil {
+		value = f(h, h.setting(key), value)
+	}
 	h.settings.Values[key] = value
 	h.saveSettings()
 	h.broadcast(map[string]any{"type": "settings", "settings": h.settingsView()})
 }
+
+// settingHooks：各功能在設定改變時要做的事（registerSettingHook 登記；呼叫時持有 h.mu、型別已檢查過）。
+// 收到改之前與新的值，回要存的值（可以正規化）
+var settingHooks = map[string]func(h *Hub, before, value any) any{}
+
+func registerSettingHook(key string, f func(h *Hub, before, value any) any) { settingHooks[key] = f }
 
 func (h *Hub) setConversationDefault(provider, key string, value any) {
 	all, _ := h.settings.Values["conversationDefaults"].(map[string]any)

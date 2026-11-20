@@ -527,6 +527,7 @@ func (h *Hub) onClaudeControlRequest(c *Conv, msg map[string]any) {
 	it.Status = "Waiting"
 	it.RequestID = reqID
 	c.pending[it.ID] = p
+	h.requestAttention(c, it, str(input, "plan"))
 	c.status = "等你回應"
 	if !h.viewing(c.Meta.ID) {
 		c.unread = true
