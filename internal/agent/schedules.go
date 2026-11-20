@@ -487,8 +487,13 @@ func (h *Hub) alertScheduleFailure(t schedules.TaskInfo, run schedules.RunRecord
 	s := h.sched
 	result := schedules.Classify(run.Code)
 	log.Printf("排程 %s 失敗：%s（%s）", t.Path, result.Text, run.At.Format("2006-01-02 15:04:05"))
-	if h.settingBool("voiceNotifications") && s.speak != nil {
-		s.speak(fmt.Sprintf("%s 的排程 %s 失敗，%s", s.machine, t.Name(), result.Text))
+	if h.settingBool("voiceNotifications") {
+		text := fmt.Sprintf("%s 的排程 %s 失敗，%s", s.machine, t.Name(), result.Text)
+		if s.speak != nil {
+			s.speak(text)
+		} else {
+			h.speak(text, nil) // 語音通知（speech.go）
+		}
 	}
 	if h.settingBool("notifications") {
 		title, body := "排程失敗："+t.Name(), run.At.Format("1/2 15:04")+" "+result.Text
