@@ -18,11 +18,12 @@ import (
 // 這個 init 也清掉繼承的 CLAUDE_CONFIG_DIR／CODEX_HOME／GROK_HOME：測試程序絕不能讀寫使用者真正的設定資料夾。
 
 func init() {
-	for _, k := range []string{"CLAUDE_CONFIG_DIR", "CODEX_HOME", "GROK_HOME"} {
-		_ = os.Unsetenv(k)
-	}
+	// 假 CLI：先照劇本回應（它要看中樞給的 CLAUDE_CONFIG_DIR 等，不能清掉）
 	if spec := os.Getenv("MYRIAGENT_FAKE_ACCT"); spec != "" {
 		os.Exit(runFakeAcct(spec, os.Args[1:]))
+	}
+	for _, k := range []string{"CLAUDE_CONFIG_DIR", "CODEX_HOME", "GROK_HOME"} {
+		_ = os.Unsetenv(k)
 	}
 }
 

@@ -60,6 +60,10 @@ type acctRuntime struct {
 	findNpm func() string
 	// cliPaths：測試指定的 CLI 位置（有設定就只看它）
 	cliPaths map[string]string
+	// tokens：側欄的 token 計數（tokens.go）；segs：每週 5% 分段紀錄（usagesegments.go）
+	tokens        *tokenTally
+	tokensPending bool
+	segs          *segmentStore
 }
 
 // ar 取得帳戶相依（第一次用時建立，預設是不連網、不碰鑰匙圈的安全值；呼叫時持有 h.mu）
@@ -83,6 +87,13 @@ func (h *Hub) ar() *acctRuntime {
 var usageObserverHooks []func(h *Hub, a *Account, s *usageSnapshot)
 
 func init() {
+	// 結束時把用量歷史、token 計數、分段紀錄寫回
+	registerShutdownHook(func(h *Hub) {
+		r := h.ar()
+		r.history.flush()
+		h.tally().flush()
+		h.segments().flush()
+	})
 	registerStartHook(func(h *Hub) {
 		h.mu.Lock()
 		r := h.ar()
