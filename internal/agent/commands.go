@@ -133,14 +133,7 @@ func (h *Hub) handle(v *View, msg map[string]any) {
 		if c != nil {
 			openInFileManager(c.workDir(h))
 		}
-	case "openPath", "revealPath":
-		if p := str(msg, "path"); p != "" {
-			if cmd == "revealPath" {
-				revealInFileManager(p)
-			} else {
-				openInFileManager(p)
-			}
-		}
+	// openPath、revealPath：files.go（只開本機路徑、白名單外的只在檔案管理員選取）
 	case "openUrl":
 		if u := str(msg, "url"); strings.HasPrefix(u, "https://") || strings.HasPrefix(u, "http://") {
 			openInFileManager(u)
