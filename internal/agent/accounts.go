@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 )
@@ -16,7 +17,7 @@ var providerNames = map[string]string{"Claude": "Claude Code", "Codex": "Codex",
 var providerExecutables = map[string]string{"Claude": "claude", "Codex": "codex", "Antigravity": "agy", "Grok": "grok"}
 
 // 目前接上的代理種類（其餘的之後移植；清單照 C# 的 AgentProviders.All 順序）
-var implementedProviders = map[string]bool{"Claude": true}
+var implementedProviders = map[string]bool{"Claude": true, "Antigravity": true, "Grok": true}
 
 var systemDefaultAppearance = map[string][2]string{
 	"Claude": {"Claude（本機）", "#D97757"}, "Codex": {"Codex（本機）", "#19C3A6"},
@@ -107,7 +108,7 @@ func (h *Hub) providerViews() []ProviderView {
 		if !h.providerAvailable(p) {
 			continue
 		}
-		out = append(out, ProviderView{Key: p, Name: providerNames[p], IsolatedAccounts: p != "Antigravity", SafeMode: false, SharedCustomizations: false, ExistingFolders: []any{}})
+		out = append(out, ProviderView{Key: p, Name: providerNames[p], IsolatedAccounts: p != "Antigravity" || runtime.GOOS != "windows", SafeMode: false, SharedCustomizations: false, ExistingFolders: []any{}})
 	}
 	return out
 }
@@ -245,6 +246,9 @@ func (h *Hub) accountViews() []AccountView {
 // ---- 模型與權限模式 ----
 
 func permissionModes(provider string) []Option {
+	if modes, ok := extraPermissionModes[provider]; ok {
+		return modes
+	}
 	switch provider {
 	case "Codex":
 		return []Option{
@@ -262,6 +266,11 @@ func permissionModes(provider string) []Option {
 		}
 	}
 }
+
+// extraPermissionModes：各家自己登記的權限模式選單（registerPermissionModes；沒登記的照上面的 switch）
+var extraPermissionModes = map[string][]Option{}
+
+func registerPermissionModes(provider string, modes []Option) { extraPermissionModes[provider] = modes }
 
 func claudePermission(mode string) string {
 	switch mode {

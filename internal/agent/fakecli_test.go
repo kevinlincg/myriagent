@@ -12,13 +12,21 @@ import (
 // 測試用的假 CLI：測試執行檔本身在 MYRIAGENT_FAKE_CLI 有值時改當成那一家的 CLI（照它的 stdin／stdout 協定回應），
 // 中樞照常以子程序啟動它。這樣不用真的帳戶與網路，也能在 CI 跑完整的流程。
 func TestMain(m *testing.M) {
-	switch os.Getenv("MYRIAGENT_FAKE_CLI") {
+	switch name := os.Getenv("MYRIAGENT_FAKE_CLI"); name {
 	case "claude":
 		fakeClaude()
 		os.Exit(0)
+	default:
+		if f := fakeCLIs[name]; f != nil {
+			f()
+			os.Exit(0)
+		}
 	}
 	os.Exit(m.Run())
 }
+
+// fakeCLIs：其他代理的假 CLI（各自的測試檔在 init 裡登記）
+var fakeCLIs = map[string]func(){}
 
 func emit(w *bufio.Writer, v any) {
 	b, _ := json.Marshal(v)
