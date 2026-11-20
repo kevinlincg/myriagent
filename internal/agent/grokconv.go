@@ -160,15 +160,19 @@ func (grokFlavor) sessionOpened(h *Hub, c *Conv, p *acpProc, result map[string]a
 		p.defaultModel = current
 	}
 	if created {
+		// 建立時的推理強度就是預設（使用者指定的強度在建立之後才送）
+		if d := acpConfigCurrent(result, "reasoning_effort", "thought_level"); d != "" {
+			p.defaultEffort = d
+		}
 		// 建立時已帶上模型（_meta.modelId）與權限（yoloMode／autoMode），規劃模式要另外切
-		p.applied["model"] = cfg.model
-		p.applied["level"] = grokLevel(cfg.mode)
-		p.applied["plan"] = "default"
-		delete(p.applied, "effort")
+		p.applied.set("model", cfg.model)
+		p.applied.set("level", grokLevel(cfg.mode))
+		p.applied.set("plan", "default")
+		p.applied.del("effort")
 	} else {
 		// 續接後權限模式與規劃模式不確定：下次一律送
-		delete(p.applied, "level")
-		delete(p.applied, "plan")
+		p.applied.del("level")
+		p.applied.del("plan")
 	}
 }
 
@@ -182,7 +186,7 @@ func (grokFlavor) applyConfig(ctx context.Context, p *acpProc, sid string, cfg a
 		return e
 	}
 	sentModel := false
-	if m, ok := p.applied["model"]; !ok || m != cfg.model {
+	if m, ok := p.applied.get("model"); !ok || m != cfg.model {
 		// 換回「預設」：送 grok 的預設模型（不知道就不送）
 		send := firstNonBlank(cfg.model, cfg.defaultModel)
 		if send != "" {
@@ -192,20 +196,22 @@ func (grokFlavor) applyConfig(ctx context.Context, p *acpProc, sid string, cfg a
 				sentModel = true
 			}
 		}
-		p.applied["model"] = cfg.model
+		p.applied.set("model", cfg.model)
 	}
 	// 換模型時一併重送思考強度：不確定 grok 換模型會不會把強度重設成新模型的預設
-	if cfg.effort != "" && cfg.effortOK && (sentModel || p.applied["effort"] != cfg.effort) {
-		if e := request("session/set_config_option", map[string]any{"sessionId": sid, "configId": "reasoning_effort", "value": cfg.effort}); e != nil {
-			notices = append(notices, "Grok 無法切換思考強度（"+cfg.effort+"）："+e.Text)
+	if send, notice := cfg.effortToSend(p.applied, sentModel, "Grok"); send != "" {
+		if e := request("session/set_config_option", map[string]any{"sessionId": sid, "configId": "reasoning_effort", "value": send}); e != nil {
+			notices = append(notices, "Grok 無法切換思考強度（"+send+"）："+e.Text)
 		}
-		p.applied["effort"] = cfg.effort
+		p.applied.set("effort", cfg.effort)
+	} else if notice != "" {
+		notices = append(notices, notice)
 	}
 	plan := "default"
 	if cfg.mode == "Plan" {
 		plan = "plan"
 	}
-	if p.applied["plan"] != plan {
+	if p.applied.val("plan") != plan {
 		if e := request("session/set_mode", map[string]any{"sessionId": sid, "modeId": plan}); e != nil {
 			verb := "離開"
 			if plan == "plan" {
@@ -213,15 +219,22 @@ func (grokFlavor) applyConfig(ctx context.Context, p *acpProc, sid string, cfg a
 			}
 			notices = append(notices, "Grok 無法"+verb+"規劃模式："+e.Text)
 		} else {
-			p.applied["plan"] = plan
+			p.applied.set("plan", plan)
 		}
 	}
-	if level := grokLevel(cfg.mode); p.applied["level"] != level {
+	if level := grokLevel(cfg.mode); p.applied.val("level") != level {
 		params := map[string]any{"yolo_mode": level == "always-approve", "permission_mode": level}
 		_ = p.conn.Notify("_x.ai/yolo_mode_changed", params)
-		p.applied["level"] = level
+		p.applied.set("level", level)
 	}
 	return notices
+}
+
+// noteMode：grok 自己進出規劃模式（enter_plan_mode、計畫確認同意後回到 default）
+func (grokFlavor) noteMode(p *acpProc, id string) {
+	if id == "plan" || id == "default" {
+		p.applied.set("plan", id)
+	}
 }
 
 // modeFromID：grok 自己換了模式：計畫確認同意後回到 default、代理用 enter_plan_mode 進入 plan

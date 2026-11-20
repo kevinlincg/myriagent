@@ -41,6 +41,8 @@ type acpFlavor interface {
 	applyConfig(ctx context.Context, p *acpProc, sid string, cfg acpConfig) []string
 	// modeFromID：代理自己換了模式（current_mode_update）→ app 的權限模式；空＝不改
 	modeFromID(modeID, current string) string
+	// noteMode：代理自己換了模式：更新程序上已套用的模式（applied）
+	noteMode(p *acpProc, modeID string)
 	// clientApprove：這個核准請求由 app 代為放行（持有 h.mu）
 	clientApprove(h *Hub, c *Conv, p *acpProc, perm acpPermission) bool
 	allowSessionLabel(kind string) string
@@ -53,11 +55,39 @@ type acpFlavor interface {
 
 // acpConfig 是這一輪要套用的設定（在 h.mu 底下從對話讀出）
 type acpConfig struct {
-	model        string // 空＝預設
-	effort       string // 空＝不指定
-	mode         string // app 的權限模式（Ask、AcceptEdits、Plan、Auto、FullAccess）
-	defaultModel string // 代理的預設模型（選「預設」時要切回它）
-	effortOK     bool   // 這個模型支援這個推理強度
+	model         string // 空＝預設
+	effort        string // 空＝不指定
+	mode          string // app 的權限模式（Ask、AcceptEdits、Plan、Auto、FullAccess）
+	defaultModel  string // 代理的預設模型（選「預設」時要切回它）
+	defaultEffort string // 代理的預設推理強度（選「預設」時要切回它）
+	effortOK      bool   // 這個模型支援這個推理強度
+}
+
+// appliedSet：程序上已套用的設定。套用設定（持有 cfgMu）與代理自己換模式的通知（持有 h.mu）都會改它，所以自己一把鎖
+type appliedSet struct {
+	mu sync.Mutex
+	m  map[string]string
+}
+
+func (a *appliedSet) get(k string) (string, bool) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	v, ok := a.m[k]
+	return v, ok
+}
+
+func (a *appliedSet) val(k string) string { v, _ := a.get(k); return v }
+
+func (a *appliedSet) set(k, v string) {
+	a.mu.Lock()
+	a.m[k] = v
+	a.mu.Unlock()
+}
+
+func (a *appliedSet) del(k string) {
+	a.mu.Lock()
+	delete(a.m, k)
+	a.mu.Unlock()
 }
 
 // acpProc 是一個對話的 ACP 程序（c.proc）。欄位在 h.mu 底下改，applied 與 initialized 在 cfgMu 底下改
@@ -68,13 +98,14 @@ type acpProc struct {
 
 	cfgMu       sync.Mutex
 	initialized bool
-	applied     map[string]string // 程序上已套用的設定（model、effort、mode、plan、level…）；沒有鍵＝不確定
+	applied     *appliedSet // 程序上已套用的設定（model、effort、mode、plan、level…）；沒有鍵＝不確定
 
-	sessionID    string
-	opened       bool
-	promptImages bool
-	models       []Option
-	defaultModel string
+	sessionID     string
+	opened        bool
+	promptImages  bool
+	models        []Option
+	defaultModel  string
+	defaultEffort string // 新對話建立時代理的推理強度（使用者換回「預設」時要切回它）
 
 	preparing  bool
 	prepCancel context.CancelFunc
@@ -171,7 +202,7 @@ func (ap acpProvider) Send(h *Hub, c *Conv, text string, images [][2]string) err
 		if err != nil {
 			return err
 		}
-		p = &acpProc{fl: fl, sig: sig, applied: map[string]string{}, tools: map[string]*acpTool{}, reqs: map[string]*acpReq{}, allowKinds: map[string]bool{}}
+		p = &acpProc{fl: fl, sig: sig, applied: &appliedSet{m: map[string]string{}}, tools: map[string]*acpTool{}, reqs: map[string]*acpReq{}, allowKinds: map[string]bool{}}
 		convID := c.Meta.ID
 		conn, err := acp.Start(acp.Options{Executable: cli.path, Args: args, Dir: wd, Env: env},
 			func(m *acp.Message) { h.onAcpMessage(convID, p, m) },
@@ -191,9 +222,44 @@ func (ap acpProvider) Send(h *Hub, c *Conv, text string, images [][2]string) err
 
 // acpConfigOf：這一輪要套用的設定（持有 h.mu）
 func (h *Hub) acpConfigOf(c *Conv, p *acpProc) acpConfig {
-	cfg := acpConfig{model: normalizeDefault(c.Meta.Model), effort: normalizeDefault(c.Meta.Effort), mode: orDefault(c.Meta.Permission, "Ask"), defaultModel: p.defaultModel}
+	cfg := acpConfig{model: normalizeDefault(c.Meta.Model), effort: normalizeDefault(c.Meta.Effort), mode: orDefault(c.Meta.Permission, "Ask"), defaultModel: p.defaultModel, defaultEffort: p.defaultEffort}
 	cfg.effortOK = cfg.effort != "" && supportsEffort(p.models, cfg.model, cfg.effort)
 	return cfg
+}
+
+// effortToSend：這次要送的推理強度（空＝不送）。換回「預設」時送代理的預設強度；不知道預設是什麼就回提示，程序上的強度維持原樣
+func (cfg acpConfig) effortToSend(applied *appliedSet, sentModel bool, label string) (send, notice string) {
+	cur, known := applied.get("effort")
+	if cfg.effort == "" {
+		if !known || cur == "" {
+			return "", ""
+		}
+		if cfg.defaultEffort == "" {
+			applied.set("effort", "")
+			return "", label + " 沒有回報預設的推理強度，這個對話會維持 " + cur + "；新對話才會用預設"
+		}
+		return cfg.defaultEffort, ""
+	}
+	if cfg.effortOK && (sentModel || cur != cfg.effort || !known) {
+		return cfg.effort, ""
+	}
+	return "", ""
+}
+
+// acpConfigCurrent：session/new 回應的 configOptions 裡某個設定目前的值（建立時的預設）
+func acpConfigCurrent(result map[string]any, ids ...string) string {
+	arr, _ := result["configOptions"].([]any)
+	for _, x := range arr {
+		m, _ := x.(map[string]any)
+		for _, id := range ids {
+			if str(m, "id") == id || str(m, "category") == id {
+				if v := str(m, "currentValue"); v != "" {
+					return v
+				}
+			}
+		}
+	}
+	return ""
 }
 
 func normalizeDefault(s string) string {
@@ -323,8 +389,14 @@ func (h *Hub) acpEnsureSession(convID string, p *acpProc, ctx context.Context) (
 		caps, _ := rm["agentCapabilities"].(map[string]any)
 		pc, _ := caps["promptCapabilities"].(map[string]any)
 		img, _ := pc["image"].(bool)
+		meta, _ := rm["_meta"].(map[string]any)
+		state, _ := meta["modelState"].(map[string]any)
 		h.mu.Lock()
 		p.promptImages = img
+		if d := str(state, "currentModelId"); d != "" {
+			// grok：initialize 的 modelState 是帳戶的預設模型（還沒建立對話、不受這個對話指定的模型影響）
+			p.defaultModel = d
+		}
 		h.mu.Unlock()
 	}
 
@@ -538,6 +610,8 @@ func (h *Hub) onAcpUpdate(c *Conv, p *acpProc, u map[string]any) {
 			h.acpAccountChanged(a)
 		}
 	case "current_mode_update":
+		// 代理自己換了模式：記下程序上實際的模式，之後使用者換回來時才會真的送出
+		p.fl.noteMode(p, str(u, "currentModeId"))
 		if mode := p.fl.modeFromID(str(u, "currentModeId"), c.Meta.Permission); mode != "" && mode != c.Meta.Permission {
 			c.Meta.Permission = mode
 			c.changed()

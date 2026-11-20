@@ -166,8 +166,15 @@ func (agyFlavor) sessionOpened(h *Hub, c *Conv, p *acpProc, result map[string]an
 		models = append([]Option{def}, models...)
 		p.models = models
 	}
-	if current != "" && cfg.model == "" {
+	// session/new 不帶模型：建立時回報的就是 agy 的預設模型（就算這個對話指定了別的，之後換回「預設」要切回它）；
+	// 續接時回報的是這個對話上次用的，只有選「預設」時才當成預設
+	if current != "" && (created || cfg.model == "") {
 		p.defaultModel = current
+	}
+	if created {
+		if d := acpConfigCurrent(result, "thought_level"); d != "" {
+			p.defaultEffort = d
+		}
 	}
 	if a := h.account(c.Meta.AccountID); a != nil {
 		if len(models) > 0 {
@@ -184,14 +191,14 @@ func (agyFlavor) sessionOpened(h *Hub, c *Conv, p *acpProc, result map[string]an
 	}
 	if modes, ok := result["modes"].(map[string]any); ok {
 		if id := str(modes, "currentModeId"); id != "" {
-			p.applied["mode"] = id
+			p.applied.set("mode", id)
 		}
 	}
 	if created {
 		// 新對話用 agy 的預設模型：選「預設」就不必再送
-		p.applied["model"] = ""
+		p.applied.set("model", "")
 		if cfg.model != "" && cfg.model == current {
-			p.applied["model"] = cfg.model
+			p.applied.set("model", cfg.model)
 		}
 	}
 }
@@ -229,7 +236,7 @@ func (agyFlavor) applyConfig(ctx context.Context, p *acpProc, sid string, cfg ac
 		return e
 	}
 	sentModel := false
-	if m, ok := p.applied["model"]; !ok || m != cfg.model {
+	if m, ok := p.applied.get("model"); !ok || m != cfg.model {
 		send := firstNonBlank(cfg.model, cfg.defaultModel)
 		if send != "" {
 			if e := request("session/set_model", map[string]any{"sessionId": sid, "modelId": send}); e != nil {
@@ -238,22 +245,31 @@ func (agyFlavor) applyConfig(ctx context.Context, p *acpProc, sid string, cfg ac
 				sentModel = true
 			}
 		}
-		p.applied["model"] = cfg.model
+		p.applied.set("model", cfg.model)
 	}
-	if cfg.effort != "" && cfg.effortOK && (sentModel || p.applied["effort"] != cfg.effort) {
-		if e := request("session/set_config_option", map[string]any{"sessionId": sid, "configId": "thought_level", "value": cfg.effort}); e != nil {
-			notices = append(notices, "Antigravity 無法切換推理強度（"+cfg.effort+"）："+e.Text)
+	if send, notice := cfg.effortToSend(p.applied, sentModel, "Antigravity"); send != "" {
+		if e := request("session/set_config_option", map[string]any{"sessionId": sid, "configId": "thought_level", "value": send}); e != nil {
+			notices = append(notices, "Antigravity 無法切換推理強度（"+send+"）："+e.Text)
 		}
-		p.applied["effort"] = cfg.effort
+		p.applied.set("effort", cfg.effort)
+	} else if notice != "" {
+		notices = append(notices, notice)
 	}
-	if id := agyModeID(cfg.mode); p.applied["mode"] != id {
+	if id := agyModeID(cfg.mode); p.applied.val("mode") != id {
 		if e := request("session/set_mode", map[string]any{"sessionId": sid, "modeId": id}); e != nil {
 			notices = append(notices, "Antigravity 無法切換權限模式："+e.Text)
 		} else {
-			p.applied["mode"] = id
+			p.applied.set("mode", id)
 		}
 	}
 	return notices
+}
+
+// noteMode：agy 自己換了模式：記下程序上實際的 modeId
+func (agyFlavor) noteMode(p *acpProc, id string) {
+	if id != "" {
+		p.applied.set("mode", id)
+	}
 }
 
 // modeFromID：agy 自己換了模式 → app 的權限模式（auto 對到自動或完全自動，目前是其中之一就不改）
