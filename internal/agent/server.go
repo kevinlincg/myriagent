@@ -79,6 +79,11 @@ func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/", http.StatusFound)
 		return
 	}
+	// 對話裡的代理（myriagent schedule…）：不看 cookie，看對話權杖（localapi.go）
+	if r.URL.Path == "/local" {
+		s.hub.serveLocal(w, r)
+		return
+	}
 	if !s.authorized(r) {
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		w.WriteHeader(http.StatusUnauthorized)

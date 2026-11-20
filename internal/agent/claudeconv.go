@@ -47,7 +47,7 @@ func (h *Hub) ensureSession(c *Conv) error {
 		Executable: cli.path, WorkDir: wd, SessionID: c.Meta.SessionID, Resume: c.Meta.SessionStarted,
 		Model: model, Effort: effort, PermissionMode: claudePermission(c.Meta.Permission), ConfigDir: a.ConfigDir,
 		AppendSystem: h.instructions(c),
-		Env:          []string{"MYRIAGENT_AGENT_CONVERSATION=" + c.Meta.ID},
+		Env:          h.agentEnv(c),
 	}
 	convID := c.Meta.ID
 	var sess *claude.Session

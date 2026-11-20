@@ -26,6 +26,11 @@ type Hub struct {
 	clis     map[string]*cliInfo
 
 	flushKick chan struct{}
+
+	// 本機介面（localapi.go）：對話權杖的亂數、這台 agent 的位址
+	localOnce   sync.Once
+	localSecret []byte
+	localURL    string
 }
 
 // View 是一個連上的網頁（一個視窗或瀏覽器分頁）
