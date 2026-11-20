@@ -1,4 +1,4 @@
-// 觸控左右滑叫出與收起兩側面板的純規則（src/Myriagent/Web/drawerrules.js）：方向鎖定、要不要接手（左邊的側欄、右邊的電腦狀態）、
+// 觸控左右滑叫出與收起兩側面板的純規則（web/drawerrules.js）：方向鎖定、要不要接手（左邊的側欄、右邊的電腦狀態）、
 // 對話那一側往哪邊滑叫出哪一個、拖曳中的展開比例與位置、速度、放開時開或關、讓給打字與橫向捲動，
 // 以及 drawerrules.js 沒有 import、它與 drawer.js 沒有 HTML 寫入點。
 // 規則模組沒有 import，以 data: URL 匯入（同 launchrules.test.mjs）。

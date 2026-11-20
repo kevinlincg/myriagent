@@ -1,4 +1,4 @@
-// 執行列的純規則（src/Myriagent/Web/launchrules.js）：按鈕在各階段能不能按、快捷鍵、狀態文字與色調、執行模式（Debug／Release）、失敗時自動打開輸出、
+// 執行列的純規則（web/launchrules.js）：按鈕在各階段能不能按、快捷鍵、狀態文字與色調、執行模式（Debug／Release）、失敗時自動打開輸出、
 // 輸出的合併與再拿、錯誤行與「把錯誤貼到輸入框」，以及 launchrules.js 沒有 import、沒有 HTML 寫入點、launchbar.js 沒有 HTML 寫入點。
 // 規則模組沒有 import，以 data: URL 匯入（同 gitrules.test.mjs）。
 import { test } from 'node:test';

@@ -92,28 +92,52 @@ func (h *Hub) instructions(c *Conv) string {
 	return strings.ReplaceAll(s, "{cwd}", c.workDir(h))
 }
 
-// startTurn 送出一則訊息、開始一輪（呼叫時持有 h.mu）
-func (h *Hub) startTurn(c *Conv, text string) {
+// claudeProvider：Claude Code CLI（claude -p，stream-json）
+type claudeProvider struct{}
+
+func init() { registerProvider("Claude", claudeProvider{}) }
+
+func (claudeProvider) Steer() bool { return true }
+
+func (claudeProvider) Send(h *Hub, c *Conv, text string, images [][2]string) error {
 	if err := h.ensureSession(c); err != nil {
-		c.errorItem("沒辦法啟動 Claude：" + err.Error())
-		c.changed()
-		h.kick()
-		return
+		return err
 	}
-	uuid := newUUID()
-	user := c.addItem("User")
-	user.Text = text
-	user.HTML = render.Text(text)
-	c.running, c.stopping = true, false
-	c.startedAt = nowMs()
-	c.status = "思考中…"
-	c.Meta.UpdatedAt = nowMs()
-	c.changed()
-	if err := c.sess.SendUser(text, uuid, nil); err != nil {
-		c.running = false
-		c.errorItem("送不出去：" + err.Error())
+	return c.sess.SendUser(text, newUUID(), images)
+}
+
+func (claudeProvider) Stop(h *Hub, c *Conv) {
+	if c.sess != nil {
+		_ = c.sess.Interrupt()
 	}
-	h.kick()
+}
+
+func (claudeProvider) Alive(c *Conv) bool { return c.sess != nil && c.sess.Alive() }
+
+func (claudeProvider) Close(c *Conv) {
+	if s := c.sess; s != nil {
+		c.sess = nil
+		go s.Close(2 * time.Second)
+	}
+}
+
+func (claudeProvider) RefreshAccount(h *Hub, a *Account) { refreshClaudeAccount(h, a) }
+
+// SetOption：模型與權限模式在執行中也能即時套用；推理強度只能在啟動時帶
+func (claudeProvider) SetOption(h *Hub, c *Conv, key, value string) bool {
+	switch key {
+	case "model":
+		m := any(value)
+		if value == "default" {
+			m = nil
+		}
+		_ = c.sess.ControlAsync(map[string]any{"subtype": "set_model", "model": m})
+		return true
+	case "permission":
+		_ = c.sess.ControlAsync(map[string]any{"subtype": "set_permission_mode", "mode": claudePermission(value)})
+		return true
+	}
+	return false
 }
 
 func (h *Hub) onClaudeExit(convID string, sess *claude.Session, err error, stderr string) {
@@ -406,9 +430,6 @@ func truncateTail(s string, n int) string {
 }
 
 func (h *Hub) onClaudeResult(c *Conv, msg map[string]any) {
-	c.running = false
-	c.stopping = false
-	c.status = ""
 	c.curBlock = nil
 	for _, list := range c.streamText {
 		for _, it := range list {
@@ -436,18 +457,7 @@ func (h *Hub) onClaudeResult(c *Conv, msg map[string]any) {
 		}
 		c.errorItem(text)
 	}
-	c.Meta.UpdatedAt = nowMs()
-	if !h.viewing(c.Meta.ID) {
-		c.unread = true
-	}
-	c.changed()
-	// 佇列裡還有就接著送
-	if len(c.queue) > 0 {
-		next := c.queue[0]
-		c.queue = c.queue[1:]
-		c.dirtyComp = true
-		h.startTurn(c, next.Text)
-	}
+	h.endTurn(c)
 }
 
 func num(v any) int64 {
@@ -524,13 +534,10 @@ func (h *Hub) onClaudeControlRequest(c *Conv, msg map[string]any) {
 	c.changed()
 }
 
-func (h *Hub) approve(c *Conv, itemID, choice, message string) {
-	p := c.pending[itemID]
-	it := c.item(itemID)
-	if p == nil || it == nil || c.sess == nil {
+func (claudeProvider) Approve(h *Hub, c *Conv, it *Item, p *pendingRequest, choice, message string) {
+	if c.sess == nil {
 		return
 	}
-	delete(c.pending, itemID)
 	switch choice {
 	case "allow", "allowSession":
 		resp := map[string]any{"behavior": "allow", "updatedInput": orEmpty(p.input)}
@@ -568,13 +575,10 @@ func (h *Hub) approve(c *Conv, itemID, choice, message string) {
 	c.changed()
 }
 
-func (h *Hub) answer(c *Conv, itemID string, answers map[string][]string, skip bool) {
-	p := c.pending[itemID]
-	it := c.item(itemID)
-	if p == nil || it == nil || c.sess == nil {
+func (claudeProvider) Answer(h *Hub, c *Conv, it *Item, p *pendingRequest, answers map[string][]string, skip bool) {
+	if c.sess == nil {
 		return
 	}
-	delete(c.pending, itemID)
 	if skip {
 		_ = c.sess.Respond(p.requestID, map[string]any{"behavior": "deny", "message": "使用者略過了這個問題，請依你的判斷繼續。", "interrupt": false})
 		it.Status, it.Decision = "Done", "skip"
@@ -604,13 +608,10 @@ func (h *Hub) answer(c *Conv, itemID string, answers map[string][]string, skip b
 	c.changed()
 }
 
-func (h *Hub) approvePlan(c *Conv, itemID, choice, message string) {
-	p := c.pending[itemID]
-	it := c.item(itemID)
-	if p == nil || it == nil || c.sess == nil {
+func (claudeProvider) ApprovePlan(h *Hub, c *Conv, it *Item, p *pendingRequest, choice, message string) {
+	if c.sess == nil {
 		return
 	}
-	delete(c.pending, itemID)
 	switch choice {
 	case "acceptEdits", "manual":
 		_ = c.sess.Respond(p.requestID, map[string]any{"behavior": "allow", "updatedInput": orEmpty(p.input)})

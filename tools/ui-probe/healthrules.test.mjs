@@ -1,4 +1,4 @@
-// 儀表板健康度的純規則（src/Myriagent/Web/healthrules.js）：等級、帳戶卡的一行、指示檔區塊何時顯示、狀態膠囊、涵蓋率、
+// 儀表板健康度的純規則（web/healthrules.js）：等級、帳戶卡的一行、指示檔區塊何時顯示、狀態膠囊、涵蓋率、
 // 「用代理合併／精簡／整理」可以選的帳戶與明細各項的按鈕，以及 healthrules.js 沒有 import、沒有 HTML 寫入點。規則模組沒有 import，以 data: URL 匯入（同 gitrules.test.mjs）。
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

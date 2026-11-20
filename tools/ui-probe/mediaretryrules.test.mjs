@@ -1,8 +1,8 @@
-// 影片與圖片載入失敗之後的自動重試（src/Myriagent/Web/mediaretryrules.js）的純規則
+// 影片與圖片載入失敗之後的自動重試（web/mediaretryrules.js）的純規則
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import * as MR from '../../src/Myriagent/Web/mediaretryrules.js';
-import * as E from '../../src/Myriagent/Web/errorrules.js';
+import * as MR from '../../web/mediaretryrules.js';
+import * as E from '../../web/errorrules.js';
 
 /** 照規則跑一回：每次失敗就照指示重試（重試馬上又失敗），回每一步的結果 */
 function failRepeatedly(state, start, times) {

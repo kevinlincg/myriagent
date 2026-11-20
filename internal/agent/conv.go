@@ -38,7 +38,8 @@ type Conv struct {
 	Meta  ConvMeta
 	Items []*Item
 
-	sess      *claude.Session
+	sess      *claude.Session // Claude 的程序（claudeconv.go）
+	proc      any             // 其他代理種類的程序狀態（各家自己的型別）
 	running   bool
 	stopping  bool
 	status    string
@@ -224,7 +225,7 @@ func (h *Hub) header(c *Conv) Header {
 		Permission: orDefault(c.Meta.Permission, "Ask"), PermissionModes: permissionModes(c.Meta.Provider),
 		Models: []Option{defaultModelOption}, Commands: []Command{}, WorkingDirectory: c.workDir(h), CustomFolder: c.Meta.CustomFolder,
 		RecentFolders: append([]string{}, h.settings.RecentFolders...), IsDraft: c.Meta.IsDraft, Running: c.running,
-		Steer: c.Meta.Provider == "Claude" || c.Meta.Provider == "Codex", AccountMissing: a == nil,
+		Steer: h.provider(c) != nil && h.provider(c).Steer(), AccountMissing: a == nil,
 		AccountDelegate: false,
 	}
 	if a != nil {

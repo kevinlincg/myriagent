@@ -1,7 +1,7 @@
-// 遠端桌面的鎖定畫面支援在設定頁的純規則（src/Myriagent/Web/deskservicerules.js；web-protocol 的 deskService）
+// 遠端桌面的鎖定畫面支援在設定頁的純規則（web/deskservicerules.js；web-protocol 的 deskService）
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { deskServiceShown, deskServiceVersion, deskServiceSummary, deskServiceProbeText, deskServiceConfirm } from '../../src/Myriagent/Web/deskservicerules.js';
+import { deskServiceShown, deskServiceVersion, deskServiceSummary, deskServiceProbeText, deskServiceConfirm } from '../../web/deskservicerules.js';
 
 const base = {
   type: 'deskService', offered: true, known: true, installed: false, running: false, version: null, build: null,

@@ -6,7 +6,7 @@ import {
   countExternalByProvider,
   filterExternalItems,
   formatExternalFolder,
-} from '../../src/Myriagent/Web/importrules.js';
+} from '../../web/importrules.js';
 
 const SAMPLE = normalizeExternalItems([
   {

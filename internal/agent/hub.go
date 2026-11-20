@@ -246,23 +246,17 @@ func (h *Hub) flushLoop() {
 // shutdown 停掉所有 CLI、存檔
 func (h *Hub) shutdown() {
 	h.mu.Lock()
-	sessions := []*Conv{}
+	closing := 0
 	for _, c := range h.convs {
 		c.save(h)
-		if c.sess != nil {
-			sessions = append(sessions, c)
+		if h.alive(c) {
+			closing++
 		}
+		h.closeSession(c)
 	}
 	h.mu.Unlock()
-	var wg sync.WaitGroup
-	for _, c := range sessions {
-		wg.Add(1)
-		go func(c *Conv) {
-			defer wg.Done()
-			if s := c.sess; s != nil {
-				s.Close(2 * time.Second)
-			}
-		}(c)
+	// 各家的 Close 不等程序結束：給它們一點時間收尾
+	if closing > 0 {
+		time.Sleep(2500 * time.Millisecond)
 	}
-	wg.Wait()
 }

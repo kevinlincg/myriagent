@@ -3,7 +3,7 @@
 // tests/MyriagentHub.Tests/Rendering/SnapshotRenderBench 以 MYRIAGENT_SNAPSHOT_DUMP 匯出到暫存資料夾；內容是真的對話，不進 repo）。
 // 手機尺寸（390×844、觸控）、CPU 以 CDP 降速，記：收到之後多久拿掉「載入中」（第一批畫好）、全部批次補完、這段期間的長工作。
 // 用法：node open-cost.mjs <頁面 JSON 的資料夾> [--runs 3] [--cpu 4]
-//   前後比較：MYRIAGENT_PROBE_HUB_WEB、MYRIAGENT_PROBE_HUB_WWWROOT 指到 git archive 出來的舊版 src/Myriagent/Web 與 src/MyriagentHub/wwwroot
+//   前後比較：MYRIAGENT_PROBE_HUB_WEB、MYRIAGENT_PROBE_HUB_WWWROOT 指到 git archive 出來的舊版 web 與 src/MyriagentHub/wwwroot
 import { chromium } from 'playwright';
 import fs from 'node:fs';
 import path from 'node:path';

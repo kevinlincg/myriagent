@@ -8,7 +8,7 @@
 //   - 觸控捲動期間（手指按著或慣性還在）程式寫了幾次 scrollTop（iOS Safari 在捲動中被改捲動位置會跳一下、慣性中斷；Chrome 不會，所以另外數）。
 // 兩種瀏覽器各量一次：有原生捲動錨定的（Chrome、Safari 27 起）與沒有的（iOS Safari 26 以前，以 overflow-anchor: none 模擬）。
 // 用法：node older-scroll.mjs [--pages 4] [--cpu 4] [--latency 150] [--img 120] [--mode flick|read] [--anchor native|none|both] [--runs 1]
-//   前後比較：MYRIAGENT_PROBE_HUB_WEB、MYRIAGENT_PROBE_HUB_WWWROOT 指到 git archive 出來的舊版 src/Myriagent/Web 與 src/MyriagentHub/wwwroot
+//   前後比較：MYRIAGENT_PROBE_HUB_WEB、MYRIAGENT_PROBE_HUB_WWWROOT 指到 git archive 出來的舊版 web 與 src/MyriagentHub/wwwroot
 import { chromium } from 'playwright';
 import * as HP from './hub-page.mjs';
 import * as LF from './live-fixtures.mjs';

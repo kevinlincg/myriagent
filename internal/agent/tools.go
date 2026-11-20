@@ -259,7 +259,7 @@ func diffLines(oldS, newS string) ([]DiffLine, *DiffStats) {
 				body = append(body, DiffLine{T: "ctx", S: a[i]})
 				i++
 				j++
-			case j < m && (i == n || lcs[i][j+1] >= lcs[i+1][j]):
+			case j < m && (i == n || lcs[i][j+1] > lcs[i+1][j]):
 				body = append(body, DiffLine{T: "add", S: b[j]})
 				stats.Add++
 				j++

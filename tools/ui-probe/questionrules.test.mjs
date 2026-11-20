@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
-const source = readFileSync(new URL('../../src/Myriagent/Web/questionrules.js', import.meta.url), 'utf8');
+const source = readFileSync(new URL('../../web/questionrules.js', import.meta.url), 'utf8');
 const R = await import('data:text/javascript;base64,' + Buffer.from(source).toString('base64'));
 
 const color = { id: '要用哪種顏色？', options: [{ label: '紅色' }, { label: '藍色' }] };

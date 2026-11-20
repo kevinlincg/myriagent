@@ -1,4 +1,4 @@
-// 輸入區語音訊息的純規則（src/Myriagent/Web/voicemsgrules.js）：錄音格式、檔名（同電腦端 VoiceMessageRules）、怎麼送、計時、能不能送、
+// 輸入區語音訊息的純規則（web/voicemsgrules.js）：錄音格式、檔名（同電腦端 VoiceMessageRules）、怎麼送、計時、能不能送、
 // 麥克風錯誤與按鈕說明；手機與平板的系統語音辨識（認出手機平板、接到游標處、Android 重複的結果、改回錄音的錯誤）；
 // voicemsgrules.js 沒有 import，voicemsg.js 沒有 HTML 寫入點、語音辨識只在瀏覽器版、不送 voiceTyping。
 //   (cd tools/ui-probe && node --test voicemsgrules.test.mjs)

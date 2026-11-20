@@ -1,4 +1,4 @@
-// 臨時對話的純規則（src/Myriagent/Web/quickchatrules.js）：面板的位置與大小、朗讀的分段。
+// 臨時對話的純規則（web/quickchatrules.js）：面板的位置與大小、朗讀的分段。
 // 規則模組沒有 import，以 data: URL 匯入（同 tabdragrules.test.mjs）。
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

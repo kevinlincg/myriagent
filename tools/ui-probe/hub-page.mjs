@@ -1,6 +1,6 @@
 // 伺服器模式與桌面模式的探針頁面（WP4.6 計畫 docs/plans/2026-10-19-wp4.6-web-live.md 步 3）：把 remote-probe.mjs 的 serveHub、probeInit、
 // openHub、openDesktop 重寫成可以匯入的模組，給 live-probe.mjs（與 WP4.9 的全流程探針）重用；remote-probe.mjs 本身不改。
-// - 伺服器的 /app/：https://hub.probe.local 以 context.route 供應 src/Myriagent/Web/ 的檔案，照 AssetServerRules.InjectScripts 插入真的
+// - 伺服器的 /app/：https://hub.probe.local 以 context.route 供應 web/ 的檔案，照 AssetServerRules.InjectScripts 插入真的
 //   SignalR 程式庫與真的 transport-hub.js，帶伺服器版的 CSP（HUB_CSP 要和 SecurityHeaderRules.ContentSecurityPolicy 逐字相同，
 //   tests/MyriagentHub.Tests/Web/LiveProbeCspTests 把關）；hub 是 fake-signalr.mjs 在頁內假造的，擁有者 HTTP 端點（/api/v1/…）是 FakeApi 的可控回應，
 //   上傳端點 PUT /api/v1/uploads/{id} 預設回 404，api.uploads() 換成照 E4 回（201／200／409，可固定回 413、507 等，步 11）；

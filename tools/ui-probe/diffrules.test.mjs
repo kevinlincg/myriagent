@@ -1,4 +1,4 @@
-// 差異檢視的純規則（src/Myriagent/Web/diffrules.js）：字詞拆分、刪除與新增行的配對、逐字比對的範圍與上限、
+// 差異檢視的純規則（web/diffrules.js）：字詞拆分、刪除與新增行的配對、逐字比對的範圍與上限、
 // 每一行的片段（語法上色在一段之內跨行接續、不跨 hunk；片段接起來一定等於原文，以固定種子的亂數差異對各語言各跑一批），
 // 以及 diffrules.js 沒有 import、不碰 DOM，syntax.js 的差異上色只放 textContent。規則模組以 data: URL 匯入（同 syntaxrules.test.mjs）。
 import { test } from 'node:test';

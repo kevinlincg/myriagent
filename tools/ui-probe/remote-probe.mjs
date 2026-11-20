@@ -1,7 +1,7 @@
 // 伺服器模式的介面探針（WP3.5；計畫 docs/plans/2026-10-16-wp3.5-web-transport.md 步驟 6 起；步驟 7 連線、步驟 8 指令層、步驟 9～11 儀表板與桌面的同步畫面、
 // 步驟 12 登入頁的配對核准頁與登入後導向）：
 // 用 Playwright（本機 Chrome、無頭、暫存設定檔）在 https://hub.probe.local 以 context.route 供應「伺服器的 /app/」——
-// src/Myriagent/Web/ 的檔案、照 AssetServerRules.InjectScripts 插入的真的 SignalR 程式庫與真的 transport-hub.js（src/MyriagentHub/wwwroot），
+// web/ 的檔案、照 AssetServerRules.InjectScripts 插入的真的 SignalR 程式庫與真的 transport-hub.js（src/MyriagentHub/wwwroot），
 // 帶伺服器版的 CSP；hub 由 fake-signalr.mjs 在頁內假造（routeWebSocket），擁有者 HTTP 端點（/api/v1/…）是可控制的假回應。
 // 桌面情境（已配對的 sync／devices）另用一份最小的 WebView2 模擬，在 https://myriagent.local 供應。
 // 結果寫 out-remote/remote-report.json（先寫結果再關瀏覽器），截圖也放在 out-remote/；開頭只清空 out-remote/，不碰 probe.mjs 的 out/。

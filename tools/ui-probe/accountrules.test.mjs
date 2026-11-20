@@ -1,4 +1,4 @@
-// 網頁版遠端帳戶與 CLI 操作的純規則（WP4.8 步 2，src/Myriagent/Web/accountrules.js）的單元測試（node:test，不開瀏覽器）：
+// 網頁版遠端帳戶與 CLI 操作的純規則（WP4.8 步 2，web/accountrules.js）的單元測試（node:test，不開瀏覽器）：
 // (cd tools/ui-probe && node --test accountrules.test.mjs)
 // 規則模組沒有 import，以 data: URL 匯入（同 rules.test.mjs）；每次匯入尾端加不同的註解，避開 module 快取。
 import { test } from 'node:test';
@@ -12,7 +12,7 @@ const repo = path.resolve(here, '..', '..');
 const webDir = path.join(repo, 'src', 'Myriagent', 'Web');
 
 let importSeq = 0;
-/** 以 data: URL 匯入 src/Myriagent/Web 底下的模組（沒有 import 的規則模組才能這樣做） */
+/** 以 data: URL 匯入 web 底下的模組（沒有 import 的規則模組才能這樣做） */
 async function importWeb(name) {
   const source = readFileSync(path.join(webDir, name), 'utf8') + `\n// accountrules.test ${++importSeq}\n`;
   return import('data:text/javascript;base64,' + Buffer.from(source, 'utf8').toString('base64'));

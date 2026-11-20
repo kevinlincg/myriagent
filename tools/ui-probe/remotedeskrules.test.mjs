@@ -1,11 +1,11 @@
-// 遠端桌面看的一方的純規則（src/Myriagent/Web/remotedeskrules.js；docs/sync-protocol.md 14.16）
+// 遠端桌面看的一方的純規則（web/remotedeskrules.js；docs/sync-protocol.md 14.16）
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   vkOf, comboEvents, normPoint, buttonOf, wheelUnits, createBatch, textEvents, createAssembler, fit, preferredMaxWidth,
   touchKind, twoFingerWheel, endText, fpsOf, cursorScale, waitingText, FIRST_FRAME_MS, statusNote,
   clampZoom, fitView, clampView, zoomAt, panBy, edgePan, twoFingerStep, twoFingerKind, zoomLabel, wantedMaxWidth, ZOOM_MAX, SPECIAL_KEYS, MAX_EVENTS, TAP_SLOP_PX, LONG_PRESS_MS, SEND_GAP_MS,
-} from '../../src/Myriagent/Web/remotedeskrules.js';
+} from '../../web/remotedeskrules.js';
 
 test('vkOf：KeyboardEvent.code 換成 Windows 的虛擬鍵碼', () => {
   assert.equal(vkOf('KeyA'), 0x41);

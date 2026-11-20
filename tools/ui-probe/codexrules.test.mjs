@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { codexShown, goalSummary, speedOptions, reviewCommand } from '../../src/Myriagent/Web/codexrules.js';
+import { codexShown, goalSummary, speedOptions, reviewCommand } from '../../web/codexrules.js';
 
 test('本機 Codex 才提供控制，遠端草稿與副本不露出無法執行的按鈕', () => {
   assert.equal(codexShown({ provider: 'Codex' }, {}), true);

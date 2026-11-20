@@ -1,4 +1,4 @@
-// 送出中的純規則（src/Myriagent/Web/sendrules.js）：要不要先顯示、宿主的使用者訊息怎麼對上（html 還原、空白、seq）、
+// 送出中的純規則（web/sendrules.js）：要不要先顯示、宿主的使用者訊息怎麼對上（html 還原、空白、seq）、
 // 排進佇列的（含附件的寫法、正在插入的不算）、被拒絕的是哪一則、沒有送出的標示與原因（failureOf、failureUpdates），
 // 以及 sendrules.js 沒有 import、沒有 HTML 寫入點。
 // 規則模組沒有 import，以 data: URL 匯入（同 launchrules.test.mjs）。

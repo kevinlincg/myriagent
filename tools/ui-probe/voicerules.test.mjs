@@ -1,4 +1,4 @@
-// 語音通知的純規則（src/Myriagent/Web/voicerules.js）：開關的預設、語速與音調（範圍同桌面）、挑中文聲音、同一個瀏覽器的分頁之間去重、被擋下的那一句多久內補念，
+// 語音通知的純規則（web/voicerules.js）：開關的預設、語速與音調（範圍同桌面）、挑中文聲音、同一個瀏覽器的分頁之間去重、被擋下的那一句多久內補念，
 // 以及 voicerules.js 沒有 import、voice.js 不把念的文字寫進 DOM。規則模組沒有 import，以 data: URL 匯入（同 gitrules.test.mjs）。
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

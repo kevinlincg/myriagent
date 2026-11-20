@@ -1,4 +1,4 @@
-// 電腦狀態面板的純規則（src/Myriagent/Web/monitorrules.js）：格式化、分級、deviceStats 的整理、歷史、要畫的電腦清單、走勢圖的路徑，
+// 電腦狀態面板的純規則（web/monitorrules.js）：格式化、分級、deviceStats 的整理、歷史、要畫的電腦清單、走勢圖的路徑，
 // 以及 monitor.js、monitorrules.js 沒有 HTML 寫入點、monitorrules.js 沒有 import。
 // 規則模組沒有 import，以 data: URL 匯入（同 rules.test.mjs）。
 import { test } from 'node:test';

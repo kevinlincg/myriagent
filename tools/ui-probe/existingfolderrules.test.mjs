@@ -1,4 +1,4 @@
-// 新增帳戶對話框「使用現有的設定資料夾」的純規則（src/Myriagent/Web/existingfolderrules.js）：列出哪些資料夾、預設的帳戶名稱，
+// 新增帳戶對話框「使用現有的設定資料夾」的純規則（web/existingfolderrules.js）：列出哪些資料夾、預設的帳戶名稱，
 // 以及這個模組沒有 import、沒有 HTML 寫入點。規則模組沒有 import，以 data: URL 匯入（同 sendrules.test.mjs）。
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

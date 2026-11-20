@@ -1,4 +1,4 @@
-// 圖片燈箱的縮放與觸控手勢純規則（src/Myriagent/Web/viewerrules.js）：縮放範圍、點一下與拖曳的分辨、兩指捏合的倍率與錨點、
+// 圖片燈箱的縮放與觸控手勢純規則（web/viewerrules.js）：縮放範圍、點一下與拖曳的分辨、兩指捏合的倍率與錨點、
 // 捏合放開時彈回、雙點，以及 viewerrules.js 沒有 import、它與 viewer.js 沒有 HTML 寫入點。
 // 規則模組沒有 import，以 data: URL 匯入（同 launchrules.test.mjs）。
 import { test } from 'node:test';

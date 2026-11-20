@@ -13,7 +13,7 @@ const repo = path.resolve(here, '..', '..');
 const webDir = path.join(repo, 'src', 'Myriagent', 'Web');
 
 let importSeq = 0;
-/** 以 data: URL 匯入 src/Myriagent/Web 底下的模組（沒有 import 的規則模組才能這樣做） */
+/** 以 data: URL 匯入 web 底下的模組（沒有 import 的規則模組才能這樣做） */
 async function importWeb(name) {
   const source = readFileSync(path.join(webDir, name), 'utf8') + `\n// rules.test ${++importSeq}\n`;
   return import('data:text/javascript;base64,' + Buffer.from(source, 'utf8').toString('base64'));

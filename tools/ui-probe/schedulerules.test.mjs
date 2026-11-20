@@ -5,7 +5,7 @@ import {
   entriesOf, ledOf, filterEntries, sortEntries, originCounts, summaryOf, badgeCount, historyBars, timelineOf, timelineTicks,
   lastText, primaryTask, provenanceText, providerKeyOf, pickSelection, quickActions, listActions, isManaged, DEFAULT_ORIGINS,
   hourTicks, isSoon, soonestPoint, soonText, runStamp, freshRuns,
-} from '../../src/Myriagent/Web/schedulerules.js';
+} from '../../web/schedulerules.js';
 
 const NOW = new Date(2026, 9, 26, 10, 0, 0).getTime();
 const H = 3600e3;
@@ -116,7 +116,7 @@ test('quickActions 與 listActions', () => {
 });
 
 test('定時訊息：形狀、狀態、時間寫法的預填、可以送進去的對話', async () => {
-  const { timedOf, timedAsEntry, timedStateText, whenOf, localConversations } = await import('../../src/Myriagent/Web/schedulerules.js');
+  const { timedOf, timedAsEntry, timedStateText, whenOf, localConversations } = await import('../../web/schedulerules.js');
   assert.deepEqual(timedOf({ timed: [{ id: 'tm_1' }, { label: 'x' }, null] }).map((t) => t.id), ['tm_1']);
   const e = timedAsEntry({ id: 'tm_1', label: '日報', enabled: true, done: false, last: { level: 'fail' }, upcoming: [1], runs: [] });
   assert.equal(e.path, 'tm_1');
@@ -168,7 +168,7 @@ test('第九批：每小時刻度、即將執行、新的執行結果', () => {
 });
 
 test('跨電腦的定時訊息（2026-11-13）：那台的對話、timedSave 的形狀、沒改文字就保留原文', async () => {
-  const { deviceConversations, timedSaveCommand } = await import('../../src/Myriagent/Web/schedulerules.js');
+  const { deviceConversations, timedSaveCommand } = await import('../../web/schedulerules.js');
   const convs = [
     { id: 'a', updatedAt: 1 }, { id: 'b', updatedAt: 3 }, { id: 'd', isDraft: true, updatedAt: 5 },
     { id: 'r1', deviceId: 'd_x', updatedAt: 2 }, { id: 'r2', deviceId: 'd_x', updatedAt: 8 }, { id: 'r3', deviceId: 'd_y', updatedAt: 9 },

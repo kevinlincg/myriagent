@@ -1,5 +1,5 @@
 // Clode Myriagent 介面探針：用 Playwright（本機 Chrome）模擬 WebView2 宿主，
-// 以 page.route 在 https://myriagent.local/ 提供 src/Myriagent/Web/ 的檔案（index.html 帶與 app 相同的 CSP），
+// 以 page.route 在 https://myriagent.local/ 提供 web/ 的檔案（index.html 帶與 app 相同的 CSP），
 // 假宿主依網頁送出的指令回應（ready→init、open→conversation、listFiles→files…），截圖並檢查協定行為，結果寫到 out/report.json。
 //
 // 用法：cd tools/ui-probe && npm install && node probe.mjs

@@ -1,4 +1,4 @@
-// 對話工作資料夾 git 晶片的純規則（src/Myriagent/Web/gitrules.js）：和誰比、徽章、色調、明細與說明文字，
+// 對話工作資料夾 git 晶片的純規則（web/gitrules.js）：和誰比、徽章、色調、明細與說明文字，
 // 以及 gitrules.js 沒有 import、沒有 HTML 寫入點。規則模組沒有 import，以 data: URL 匯入（同 rules.test.mjs）。
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

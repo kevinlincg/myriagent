@@ -1,9 +1,9 @@
-// 遠端桌面輸入的端對端加密（src/Myriagent/Web/deskseal.js；docs/sync-protocol.md 14.16）。
+// 遠端桌面輸入的端對端加密（web/deskseal.js；docs/sync-protocol.md 14.16）。
 // 固定的向量和 C# 的 DeskSealRulesTests 是同一組：看的一方（這裡）和被看的一方（宿主的 DeskSealRules）要算出一樣的金鑰與密文
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createViewerSeal, sealSupported, toBase64Url, fromBase64Url } from '../../src/Myriagent/Web/deskseal.js';
-import { kxPublic, sealAction, createBatch, statusSecure, secureAction } from '../../src/Myriagent/Web/remotedeskrules.js';
+import { createViewerSeal, sealSupported, toBase64Url, fromBase64Url } from '../../web/deskseal.js';
+import { kxPublic, sealAction, createBatch, statusSecure, secureAction } from '../../web/remotedeskrules.js';
 
 const subtle = globalThis.crypto.subtle;
 const ECDH = { name: 'ECDH', namedCurve: 'P-256' };

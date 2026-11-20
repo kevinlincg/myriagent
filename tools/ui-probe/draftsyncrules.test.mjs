@@ -1,4 +1,4 @@
-// 輸入框草稿同步的純規則（src/Myriagent/Web/draftsyncrules.js）：什麼時候送、別處的要換掉、提示還是不理、composerDrafts 的合併。
+// 輸入框草稿同步的純規則（web/draftsyncrules.js）：什麼時候送、別處的要換掉、提示還是不理、composerDrafts 的合併。
 // 規則模組沒有 import，以 data: URL 匯入（同 tabdragrules.test.mjs）。
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

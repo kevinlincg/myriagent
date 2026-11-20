@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
-	"time"
 	"unicode/utf8"
 )
 
@@ -73,11 +72,13 @@ func (h *Hub) handle(v *View, msg map[string]any) {
 			h.send(v, c, str(msg, "text"))
 		}
 	case "stop":
-		if c != nil && c.running && c.sess != nil {
+		if c != nil && c.running {
 			c.stopping = true
 			c.status = "停止中…"
 			c.dirtyHeader = true
-			_ = c.sess.Interrupt()
+			if p := h.provider(c); p != nil {
+				p.Stop(h, c)
+			}
 		}
 	case "cancelQueued":
 		if c != nil {
@@ -90,21 +91,9 @@ func (h *Hub) handle(v *View, msg map[string]any) {
 				}
 			}
 		}
-	case "approve":
+	case "approve", "approvePlan", "answer", "skipQuestion":
 		if c != nil {
-			h.approve(c, str(msg, "itemId"), str(msg, "choice"), str(msg, "message"))
-		}
-	case "approvePlan":
-		if c != nil {
-			h.approvePlan(c, str(msg, "itemId"), str(msg, "choice"), str(msg, "message"))
-		}
-	case "answer":
-		if c != nil {
-			h.answer(c, str(msg, "itemId"), toAnswers(msg["answers"]), false)
-		}
-	case "skipQuestion":
-		if c != nil {
-			h.answer(c, str(msg, "itemId"), nil, true)
+			h.respondCard(c, cmd, msg)
 		}
 	case "rename":
 		if c != nil {
@@ -324,10 +313,7 @@ func (h *Hub) clearConversation(v *View, c *Conv) {
 
 // restartSession 關掉目前的程序（下一則訊息以新的設定重開）
 func (h *Hub) restartSession(c *Conv) {
-	if s := c.sess; s != nil {
-		c.sess = nil
-		go s.Close(2 * time.Second)
-	}
+	h.closeSession(c)
 }
 
 func (h *Hub) deleteConversation(c *Conv) {
@@ -354,26 +340,29 @@ func (h *Hub) setOption(v *View, c *Conv, key, value string) {
 		c.Meta.Model = value
 		h.settings.LastModel[c.Meta.AccountID] = value
 		h.saveSettings()
-		if c.sess != nil && c.sess.Alive() {
-			m := any(value)
-			if value == "default" {
-				m = nil
-			}
-			_ = c.sess.ControlAsync(map[string]any{"subtype": "set_model", "model": m})
+		if p := h.provider(c); p != nil && p.Alive(c) && !p.SetOption(h, c, key, value) {
+			h.closeSession(c)
 		}
 	case "effort":
 		c.Meta.Effort = value
-		h.restartSession(c) // 強度只能在啟動時帶：下一則訊息重開
-		if c.running {
-			h.toast(v, "新的推理強度從下一則訊息開始生效")
+		if p := h.provider(c); p != nil && p.Alive(c) && !p.SetOption(h, c, key, value) {
+			if c.running {
+				h.toast(v, "新的推理強度從下一則訊息開始生效")
+			} else {
+				h.closeSession(c)
+			}
 		}
 	case "permission":
 		if value == "default" {
 			value = h.conversationDefault(c.Meta.Provider).Permission
 		}
 		c.Meta.Permission = value
-		if c.sess != nil && c.sess.Alive() {
-			_ = c.sess.ControlAsync(map[string]any{"subtype": "set_permission_mode", "mode": claudePermission(value)})
+		if p := h.provider(c); p != nil && p.Alive(c) && !p.SetOption(h, c, key, value) {
+			if c.running {
+				h.toast(v, "新的權限模式從下一則訊息開始生效")
+			} else {
+				h.closeSession(c)
+			}
 		}
 	default:
 		return

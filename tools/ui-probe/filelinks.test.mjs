@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
-const source = readFileSync(new URL('../../src/Myriagent/Web/filelinkrules.js', import.meta.url), 'utf8');
+const source = readFileSync(new URL('../../web/filelinkrules.js', import.meta.url), 'utf8');
 const { fileLink, filePreviewKind, localMediaUrl, isOfficeOrPdf, fileRefAction } = await import('data:text/javascript;base64,' + Buffer.from(source).toString('base64'));
 const pptx = 'C:\\repo\\slides\\watercolor_final\\output\\年度簡報_水彩版.pptx';
 

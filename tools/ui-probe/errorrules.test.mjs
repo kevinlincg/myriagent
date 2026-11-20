@@ -1,4 +1,4 @@
-// 網頁錯誤回報的純規則（src/Myriagent/Web/errorrules.js）：例外、Promise 拒絕、媒體載入失敗組成 clientError 的回報、截短、
+// 網頁錯誤回報的純規則（web/errorrules.js）：例外、Promise 拒絕、媒體載入失敗組成 clientError 的回報、截短、
 // 不回報的訊息與網址、節流（同一則 10 分鐘一次、每次載入最多 100 則），以及 errorrules.js 沒有 import、errorreport.js 只經 store.js 送出。
 // 規則模組沒有 import，以 data: URL 匯入（同 rules.test.mjs）。
 import { test } from 'node:test';

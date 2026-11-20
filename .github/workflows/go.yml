@@ -1,0 +1,68 @@
+# Go 版：在 Linux 與 macOS 上跑測試、建置各平台的執行檔；介面網頁的純規則另跑一個工作
+name: go
+
+on:
+  push:
+    branches: [go, "go/**"]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: go-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Test (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Vet
+        run: go vet ./...
+      - name: Test
+        run: go test -race -count=1 ./...
+
+  build:
+    name: Build binaries
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Build
+        shell: bash
+        run: |
+          set -euo pipefail
+          BUILD=$(git rev-parse --short=7 HEAD)
+          mkdir -p dist
+          for target in linux/amd64 linux/arm64 darwin/amd64 darwin/arm64; do
+            GOOS=${target%/*} GOARCH=${target#*/} CGO_ENABLED=0 \
+              go build -trimpath -ldflags "-s -w -X github.com/kevinlincg/myriagent/internal/agent.Build=$BUILD" \
+              -o "dist/myriagent-${target%/*}-${target#*/}" ./cmd/myriagent
+          done
+          ls -la dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: myriagent-binaries
+          path: dist/
+
+  web-rules:
+    name: Web rule tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Test
+        run: node --test tools/ui-probe/*.test.mjs

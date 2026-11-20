@@ -1,4 +1,4 @@
-// 分頁拖放的純規則（src/Myriagent/Web/tabdragrules.js）：拖曳期間要不要先排著畫面更新（含到期與時鐘往回跳）、
+// 分頁拖放的純規則（web/tabdragrules.js）：拖曳期間要不要先排著畫面更新（含到期與時鐘往回跳）、
 // 放開在分頁列的第幾個位置、插入記號的 x，以及 tabdragrules.js 沒有 import。規則模組沒有 import，以 data: URL 匯入（同 gitrules.test.mjs）。
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

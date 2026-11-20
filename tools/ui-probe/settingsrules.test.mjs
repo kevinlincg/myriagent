@@ -5,7 +5,7 @@ import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const R = await import(pathToFileURL(path.join(here, '../../src/Myriagent/Web/settingsrules.js')).href);
+const R = await import(pathToFileURL(path.join(here, '../../web/settingsrules.js')).href);
 
 test('searchTerms：空白（含全形空白）分開、全形英數轉半形、轉小寫；空字串是 []', () => {
   assert.deepEqual(R.searchTerms('  Dark　主題 '), ['dark', '主題']);

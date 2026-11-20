@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
-const source = readFileSync(new URL('../../src/Myriagent/Web/accountmentions.js', import.meta.url), 'utf8');
+const source = readFileSync(new URL('../../web/accountmentions.js', import.meta.url), 'utf8');
 const { accountSuggestions, accountMention } = await import('data:text/javascript;base64,' + Buffer.from(source).toString('base64'));
 const header = { accountId: 'claude', accountDelegation: true };
 const accounts = [

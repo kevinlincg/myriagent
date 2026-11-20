@@ -1,7 +1,7 @@
 // 手機上的儲存與分享（Web/sharerules.js；2026-11-18）的純規則
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import * as R from '../../src/Myriagent/Web/sharerules.js';
+import * as R from '../../web/sharerules.js';
 
 test('shareableUrl_只收本站的媒體與檔案網址', () => {
   assert.equal(R.shareableUrl('/m/d_A-vid1'), true);

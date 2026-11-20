@@ -1,4 +1,4 @@
-// 儀表板「每週額度每 5% 的 token」的純規則（src/Myriagent/Web/usagesegrules.js）：宿主資料的正規化、百分比與期間的字、各模型相加、
+// 儀表板「每週額度每 5% 的 token」的純規則（web/usagesegrules.js）：宿主資料的正規化、百分比與期間的字、各模型相加、
 // Claude 的每週・模型只算名稱相符的模型、CSV（每筆每模型一列、跳脫）、彙總的滑過說明，以及規則模組沒有 import、沒有 HTML 寫入點。
 // (cd tools/ui-probe && node --test usagesegrules.test.mjs)
 import { test } from 'node:test';

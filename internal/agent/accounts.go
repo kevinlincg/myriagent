@@ -166,6 +166,14 @@ func (a *Account) claudeConfigDir() string {
 
 // refreshAccount 讀帳戶的登入狀態（Claude：設定檔裡的 oauthAccount）
 func (h *Hub) refreshAccount(a *Account) {
+	if p := providers[a.Provider]; p != nil {
+		p.RefreshAccount(h, a)
+		return
+	}
+	a.status = "notInstalled"
+}
+
+func refreshClaudeAccount(h *Hub, a *Account) {
 	switch a.Provider {
 	case "Claude":
 		if h.clis["Claude"] == nil || h.clis["Claude"].path == "" {
@@ -219,7 +227,7 @@ func (h *Hub) accountViews() []AccountView {
 			if c.Meta.AccountID != a.ID || c.Meta.IsDraft {
 				continue
 			}
-			if c.sess != nil && c.sess.Alive() {
+			if h.alive(c) {
 				v.Sessions.Open++
 			}
 			if c.running {

@@ -1,4 +1,4 @@
-// Claude 對話的選項與操作的純規則（src/Myriagent/Web/claudeoptrules.js）：主代理與輸出風格的選單、目標晶片、
+// Claude 對話的選項與操作的純規則（web/claudeoptrules.js）：主代理與輸出風格的選單、目標晶片、
 // 背景工作的輸出、插入訊息的取消、回溯。規則模組沒有 import，以 data: URL 匯入（同 mcprules.test.mjs）。
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

@@ -1,4 +1,4 @@
-// 儀表板 MCP 的純規則（src/Myriagent/Web/mcprules.js）：帳戶卡上那一行的摘要、明細的每個伺服器與能做的事，
+// 儀表板 MCP 的純規則（web/mcprules.js）：帳戶卡上那一行的摘要、明細的每個伺服器與能做的事，
 // 以及 mcprules.js 沒有 import、沒有 HTML 寫入點。規則模組沒有 import，以 data: URL 匯入（同 healthrules.test.mjs）。
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

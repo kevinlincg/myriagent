@@ -1,4 +1,4 @@
-// 對話框燈號的純規則（src/Myriagent/Web/activityrules.js）：activity 訊息換成各燈這次亮不亮與每秒多少、速率的寫法、滑過時的說明，
+// 對話框燈號的純規則（web/activityrules.js）：activity 訊息換成各燈這次亮不亮與每秒多少、速率的寫法、滑過時的說明，
 // 以及 activityrules.js 沒有 import、不碰 DOM。規則模組以 data: URL 匯入（同 launchrules.test.mjs）。
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import {
   isCollaboratorViewer, cleanUserName, cleanDisplayName, passwordProblem, errorText, listOf, sharedWith, shareCount, statusText,
   authorLabel, resolvedLabel, shareIds, collabColor, shareBadge, COLLAB_COLORS,
-} from '../../src/Myriagent/Web/collabrules.js';
+} from '../../web/collabrules.js';
 
 const OWNER = { role: 'owner' };
 const COLLAB = { role: 'collaborator', name: '小明', userName: 'ming' };

@@ -1,7 +1,7 @@
 // mermaidrules.js 純函式單元測試：流程圖、循序圖、狀態圖、類別圖、ER 圖與安全邊界
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parseMermaid } from '../../src/Myriagent/Web/mermaidrules.js';
+import { parseMermaid } from '../../web/mermaidrules.js';
 
 const ALLOWED_SHAPES = new Set(['rect', 'circle', 'ellipse', 'polygon', 'path', 'line', 'text']);
 

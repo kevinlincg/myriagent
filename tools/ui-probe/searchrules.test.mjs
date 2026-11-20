@@ -1,4 +1,4 @@
-// 側欄對話搜尋的純規則（src/Myriagent/Web/searchrules.js）：關鍵字的切法（與宿主 ConversationSearchRules.Terms 相同）、
+// 側欄對話搜尋的純規則（web/searchrules.js）：關鍵字的切法（與宿主 ConversationSearchRules.Terms 相同）、
 // 標題比對、宿主結果的解讀、清單篩選、片段的標示段落，以及 searchrules.js 沒有 import、沒有 HTML 寫入點。
 //   (cd tools/ui-probe && node --test searchrules.test.mjs)
 import { test } from 'node:test';

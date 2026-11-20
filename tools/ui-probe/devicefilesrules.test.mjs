@@ -5,7 +5,7 @@ import {
   transferMenu, normalizePath, crumbs, isDriveRoot, sortEntries, selectAt, toggleAll, selectedFiles, nextToStart, isFinished,
   percent, stateText, parseXfers, applyXfer, uploadProblem, locationLabel, NETWORK_ROOT, isNetworkPath, canUploadHere, MAX_ACTIVE_DOWNLOADS, MAX_ACTIVE_UPLOADS, MAX_UPLOAD_BYTES,
   selectedFolders, FETCH_MANY_BATCH, chunk, splitRelative, downloadSubfolder, uploadSubfolder, folderProgress, folderText, browserFolderDownloadProblem, uniqueBrowserName,
-} from '../../src/Myriagent/Web/devicefilesrules.js';
+} from '../../web/devicefilesrules.js';
 
 const row = (o) => Object.assign({ key: 'd_x', id: 'd_x', self: false, hub: false, online: true, name: 'OFFICE' }, o);
 
@@ -217,7 +217,7 @@ test('瀏覽器版下載整個資料夾：要有 showDirectoryPicker；同名加
 });
 
 // ───── 速度、經過與尚需時間、暫停（2026-11-10） ─────
-import * as T from '../../src/Myriagent/Web/devicefilesrules.js';
+import * as T from '../../web/devicefilesrules.js';
 
 test('pushSample：留最近 5 秒、done 倒退就重來、同一時間覆蓋', () => {
   let s = T.pushSample([], 0, 0);

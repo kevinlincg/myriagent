@@ -1,4 +1,4 @@
-// 程式碼框語法上色的純規則（src/Myriagent/Web/syntaxrules.js）：各語言的分詞結果、別名、長度上限、
+// 程式碼框語法上色的純規則（web/syntaxrules.js）：各語言的分詞結果、別名、長度上限、
 // 不變式（所有片段接起來等於原文、沒有空片段、類別都在 TOKEN_TYPES 裡；以固定種子的亂數字串對每種語言各跑一批），
 // 以及 syntaxrules.js 沒有 import、不碰 DOM，syntax.js 沒有 HTML 寫入點。規則模組以 data: URL 匯入（同 launchrules.test.mjs）。
 import { test } from 'node:test';

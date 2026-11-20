@@ -1,7 +1,7 @@
 // 電腦選單的喇叭音量與螢幕（Web/devicecontrolrules.js；2026-11-17）的純規則
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import * as R from '../../src/Myriagent/Web/devicecontrolrules.js';
+import * as R from '../../web/devicecontrolrules.js';
 
 test('controlCommand_這台不帶deviceId_音量是0到100的字串', () => {
   assert.deepEqual(R.controlCommand({ dev: null, action: 'audioGet', requestId: 'dc-1' }), { cmd: 'deviceControl', action: 'audioGet', requestId: 'dc-1' });

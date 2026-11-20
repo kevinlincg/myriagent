@@ -1,4 +1,4 @@
-// 點了暫時放大窗格的純規則（src/Myriagent/Web/panezoomrules.js）：拉長或加寬、兩倍、不超過工作區、下面不夠往上補。
+// 點了暫時放大窗格的純規則（web/panezoomrules.js）：拉長或加寬、兩倍、不超過工作區、下面不夠往上補。
 // 規則模組沒有 import，以 data: URL 匯入（同 tabdragrules.test.mjs）。
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
