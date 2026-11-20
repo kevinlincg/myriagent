@@ -237,6 +237,12 @@ func (h *Hub) accountViews() []AccountView {
 			if c.waiting() {
 				v.Sessions.Waiting++
 			}
+			if h.hasPrograms(c) {
+				v.Sessions.Programs++
+			}
+		}
+		if v.Sessions.Programs > 0 {
+			v.Programs = h.accountPrograms(a.ID)
 		}
 		out = append(out, v)
 	}

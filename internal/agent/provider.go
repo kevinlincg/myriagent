@@ -52,6 +52,9 @@ func (h *Hub) startTurn(c *Conv, text string) {
 	c.status = "思考中…"
 	c.Meta.UpdatedAt = nowMs()
 	c.changed()
+	for _, f := range turnStartHooks {
+		f(h, c)
+	}
 	if err := p.Send(h, c, text, nil); err != nil {
 		c.running = false
 		c.status = ""
@@ -74,6 +77,9 @@ func (h *Hub) endTurn(c *Conv) {
 	}
 	c.changed()
 	h.fireConvEvent(convTurnEnded, nil, c)
+	for _, f := range turnEndHooks {
+		f(h, c)
+	}
 	if len(c.queue) > 0 {
 		next := c.queue[0]
 		c.queue = c.queue[1:]

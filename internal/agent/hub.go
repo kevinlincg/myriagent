@@ -195,6 +195,7 @@ func (h *Hub) conversationList() []ConversationSummary {
 			Group: groupLabel(time.UnixMilli(c.Meta.UpdatedAt), now), UpdatedAt: c.Meta.UpdatedAt,
 			WorkingDirectory: c.workDir(h), CustomFolder: c.Meta.CustomFolder,
 			Running: c.running, Waiting: c.waiting(), Unread: c.unread,
+			ProgramCount: h.programCount(c),
 		})
 	}
 	sort.Slice(list, func(i, j int) bool { return list[i].UpdatedAt > list[j].UpdatedAt })
@@ -285,3 +286,15 @@ func registerInitField(key string, f func(h *Hub, v *View) any) { initExtras[key
 var startHooks []func(h *Hub)
 
 func registerStartHook(f func(h *Hub)) { startHooks = append(startHooks, f) }
+
+// turnStartHooks／turnEndHooks：一輪開始、結束時各功能要做的事（registerTurnHook 登記；呼叫時持有 h.mu）
+var turnStartHooks, turnEndHooks []func(h *Hub, c *Conv)
+
+func registerTurnHook(start, end func(h *Hub, c *Conv)) {
+	if start != nil {
+		turnStartHooks = append(turnStartHooks, start)
+	}
+	if end != nil {
+		turnEndHooks = append(turnEndHooks, end)
+	}
+}

@@ -109,6 +109,9 @@ func (h *Hub) handle(v *View, msg map[string]any) {
 		}
 	case "delete":
 		if c != nil {
+			if stop, _ := msg["stopPrograms"].(bool); stop {
+				h.stopConversationPrograms(c)
+			}
 			h.deleteConversation(c)
 		}
 	case "setOption":
@@ -149,7 +152,7 @@ func (h *Hub) handle(v *View, msg map[string]any) {
 		h.setConversationDefault(str(msg, "provider"), str(msg, "key"), msg["value"])
 	case "clientError":
 		log.Printf("網頁錯誤：%v", msg["message"])
-	case "monitor", "promptHistory", "listExternalConversations":
+	case "promptHistory", "listExternalConversations":
 		// 還沒移植的功能：不回應（網頁照舊顯示，不會卡住）
 	default:
 		if f := commandHandlers[cmd]; f != nil {

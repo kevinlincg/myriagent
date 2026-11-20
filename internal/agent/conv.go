@@ -250,6 +250,7 @@ func (h *Hub) header(c *Conv) Header {
 		hd.LastTurn = &lt
 	}
 	hd.LastPrompt = c.lastPrompt()
+	hd.Programs = h.headerPrograms(c)
 	return hd
 }
 

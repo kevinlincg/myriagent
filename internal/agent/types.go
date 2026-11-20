@@ -66,6 +66,7 @@ type AccountView struct {
 	LoginExpiresAt      *int64   `json:"loginExpiresAt"`
 	Usage               *Usage   `json:"usage"`
 	Sessions            Sessions `json:"sessions"`
+	Programs            any      `json:"programs,omitempty"` // 有背景程式的對話（sessions.programs > 0 才帶；bgprograms.go）
 }
 
 type ProviderView struct {
