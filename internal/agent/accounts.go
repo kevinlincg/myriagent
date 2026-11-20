@@ -17,7 +17,7 @@ var providerNames = map[string]string{"Claude": "Claude Code", "Codex": "Codex",
 var providerExecutables = map[string]string{"Claude": "claude", "Codex": "codex", "Antigravity": "agy", "Grok": "grok"}
 
 // 目前接上的代理種類（其餘的之後移植；清單照 C# 的 AgentProviders.All 順序）
-var implementedProviders = map[string]bool{"Claude": true, "Antigravity": true, "Grok": true}
+var implementedProviders = map[string]bool{"Claude": true, "Codex": true, "Antigravity": true, "Grok": true}
 
 var systemDefaultAppearance = map[string][2]string{
 	"Claude": {"Claude（本機）", "#D97757"}, "Codex": {"Codex（本機）", "#19C3A6"},
@@ -165,6 +165,14 @@ func (a *Account) claudeConfigDir() string {
 	return filepath.Join(home, ".claude")
 }
 
+// configDirectory：畫面上顯示的設定資料夾（各家的預設位置不同）
+func (a *Account) configDirectory() string {
+	if a.Provider == "Codex" {
+		return codexHomeOf(a)
+	}
+	return a.claudeConfigDir()
+}
+
 // refreshAccount 讀帳戶的登入狀態（Claude：設定檔裡的 oauthAccount）
 func (h *Hub) refreshAccount(a *Account) {
 	if p := providers[a.Provider]; p != nil {
@@ -214,7 +222,7 @@ func (h *Hub) accountViews() []AccountView {
 	for _, a := range h.accounts {
 		v := AccountView{
 			ID: a.ID, Provider: a.Provider, Label: a.Label, Color: a.Color, IsSystemDefault: a.IsSystemDefault,
-			ConfigDirectory: a.claudeConfigDir(), Status: a.status, StatusText: statusText[a.status],
+			ConfigDirectory: a.configDirectory(), Status: a.status, StatusText: statusText[a.status],
 		}
 		if a.email != "" {
 			e := a.email

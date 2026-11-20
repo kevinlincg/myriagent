@@ -209,6 +209,7 @@ type Item struct {
 	DetailHTML         string              `json:"detailHtml,omitempty"`
 	Questions          []Question          `json:"questions,omitempty"`
 	Answers            map[string][]string `json:"answers,omitempty"`
+	AnswerAsMessage    bool                `json:"answerAsMessage,omitempty"` // 答案當作下一則訊息送出（Codex 非同步提問）
 	Plan               []PlanStep          `json:"plan,omitempty"`
 	Attachments        []Attachment        `json:"attachments,omitempty"`
 
