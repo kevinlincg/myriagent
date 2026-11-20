@@ -65,6 +65,9 @@ func newHub(root string) *Hub {
 	h.loadAccounts()
 	h.loadConversations()
 	go h.flushLoop()
+	for _, f := range startHooks {
+		go f(h)
+	}
 	return h
 }
 
@@ -260,3 +263,13 @@ func (h *Hub) shutdown() {
 		time.Sleep(2500 * time.Millisecond)
 	}
 }
+
+// initExtras：各功能在 init 訊息裡加的欄位（registerInitField 登記；呼叫時持有 h.mu）
+var initExtras = map[string]func(h *Hub, v *View) any{}
+
+func registerInitField(key string, f func(h *Hub, v *View) any) { initExtras[key] = f }
+
+// startHooks：中樞建好之後各功能要啟動的背景工作（registerStartHook 登記；不持有 h.mu）
+var startHooks []func(h *Hub)
+
+func registerStartHook(f func(h *Hub)) { startHooks = append(startHooks, f) }

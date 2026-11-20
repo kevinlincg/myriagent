@@ -154,14 +154,24 @@ func (h *Hub) handle(v *View, msg map[string]any) {
 	case "monitor", "promptHistory", "listExternalConversations":
 		// 還沒移植的功能：不回應（網頁照舊顯示，不會卡住）
 	default:
-		if cmd != "" {
+		if f := commandHandlers[cmd]; f != nil {
+			f(h, v, c, msg)
+		} else if cmd != "" {
 			log.Printf("還沒支援的指令：%s", cmd)
 		}
 	}
 }
 
+// commandHandlers：各功能自己登記的指令（在各自檔案的 init 裡呼叫 registerCommand），不必改上面的 switch。
+// 呼叫時持有 h.mu；c 是 msg.conversationId 對到的對話（沒有是 nil）
+var commandHandlers = map[string]func(h *Hub, v *View, c *Conv, msg map[string]any){}
+
+func registerCommand(name string, f func(h *Hub, v *View, c *Conv, msg map[string]any)) {
+	commandHandlers[name] = f
+}
+
 func (h *Hub) initMsg(v *View, popout string) map[string]any {
-	return map[string]any{
+	m := map[string]any{
 		"type": "init", "mode": v.mode, "windowRole": nil, "popoutConversationId": nilIfEmpty(popout),
 		"app":            map[string]any{"version": Version, "build": Build, "release": Version + "-" + Build, "commitAt": nil},
 		"edition":        "standalone",
@@ -181,6 +191,10 @@ func (h *Hub) initMsg(v *View, popout string) map[string]any {
 		"health":         nil,
 		"schedules":      nil,
 	}
+	for k, f := range initExtras {
+		m[k] = f(h, v)
+	}
+	return m
 }
 
 func nilIfEmpty(s string) any {

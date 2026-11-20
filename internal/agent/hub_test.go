@@ -174,7 +174,10 @@ func TestQuestionAnswer(t *testing.T) {
 	_, tv := newTestHub(t)
 	id := tv.newDraft()
 	tv.send(map[string]any{"cmd": "send", "conversationId": id, "text": "提問"})
-	card := tv.wait("問卷", func(m map[string]any) bool { x := itemOf(m); return x != nil && x["kind"] == "Question" && x["status"] == "Waiting" })
+	card := tv.wait("問卷", func(m map[string]any) bool {
+		x := itemOf(m)
+		return x != nil && x["kind"] == "Question" && x["status"] == "Waiting"
+	})
 	tv.send(map[string]any{"cmd": "answer", "conversationId": id, "itemId": itemOf(card)["id"], "answers": map[string]any{"要哪一個？": []any{"乙"}}})
 	tv.wait("代理收到答案", func(m map[string]any) bool {
 		x := itemOf(m)
@@ -186,7 +189,10 @@ func TestQueueWhileRunningAndStop(t *testing.T) {
 	_, tv := newTestHub(t)
 	id := tv.newDraft()
 	tv.send(map[string]any{"cmd": "send", "conversationId": id, "text": "慢一點"})
-	tv.wait("執行中", func(m map[string]any) bool { hd, _ := m["header"].(map[string]any); return m["type"] == "header" && hd["running"] == true })
+	tv.wait("執行中", func(m map[string]any) bool {
+		hd, _ := m["header"].(map[string]any)
+		return m["type"] == "header" && hd["running"] == true
+	})
 	tv.send(map[string]any{"cmd": "send", "conversationId": id, "text": "第二則"})
 	tv.wait("排進佇列", func(m map[string]any) bool {
 		c, _ := m["composer"].(map[string]any)
@@ -205,7 +211,10 @@ func TestReloadKeepsConversation(t *testing.T) {
 	h, tv := newTestHub(t)
 	id := tv.newDraft()
 	tv.send(map[string]any{"cmd": "send", "conversationId": id, "text": "記住我"})
-	tv.wait("回覆", func(m map[string]any) bool { x := itemOf(m); return x != nil && x["kind"] == "Assistant" && x["status"] == "Done" })
+	tv.wait("回覆", func(m map[string]any) bool {
+		x := itemOf(m)
+		return x != nil && x["kind"] == "Assistant" && x["status"] == "Done"
+	})
 	h.mu.Lock()
 	h.convs[id].save(h)
 	root := h.root
@@ -217,4 +226,3 @@ func TestReloadKeepsConversation(t *testing.T) {
 		t.Fatalf("重新載入後的對話不對：%+v", c)
 	}
 }
-
