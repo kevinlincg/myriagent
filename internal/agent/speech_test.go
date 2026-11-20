@@ -130,7 +130,7 @@ func (f *fakeSpeech) startedList() []string {
 	return append([]string{}, f.started...)
 }
 
-func waitFor(t *testing.T, what string, ok func() bool) {
+func waitForSpeech(t *testing.T, what string, ok func() bool) {
 	t.Helper()
 	deadline := time.Now().Add(5 * time.Second)
 	for !ok() {
@@ -157,7 +157,7 @@ func TestVoiceAnnouncerQueueStopAndUnavailable(t *testing.T) {
 	for i := 0; i < 4; i++ {
 		f.release <- struct{}{}
 	}
-	waitFor(t, "念完", a.idle)
+	waitForSpeech(t, "念完", a.idle)
 	if got := f.startedList(); !reflect.DeepEqual(got, []string{"一", "二", "三", "四"}) {
 		t.Fatalf("念的順序：%v", got)
 	}
@@ -167,9 +167,9 @@ func TestVoiceAnnouncerQueueStopAndUnavailable(t *testing.T) {
 	// stop：停下正在念的、清掉還沒念的
 	a.speak("六", voiceTuning{1, 0}, nil)
 	a.speak("七", voiceTuning{1, 0}, nil)
-	waitFor(t, "開始念六", func() bool { return len(f.startedList()) == 5 })
+	waitForSpeech(t, "開始念六", func() bool { return len(f.startedList()) == 5 })
 	a.stop()
-	waitFor(t, "停下", a.idle)
+	waitForSpeech(t, "停下", a.idle)
 	f.mu.Lock()
 	stopped := append([]string{}, f.stopped...)
 	f.mu.Unlock()
@@ -181,7 +181,7 @@ func TestVoiceAnnouncerQueueStopAndUnavailable(t *testing.T) {
 	calls := 0
 	b := newVoiceAnnouncer(func() (speechEngine, error) { calls++; return nil, errors.New("沒有語音") })
 	b.speak("甲", voiceTuning{1, 0}, nil)
-	waitFor(t, "不能用", func() bool { b.mu.Lock(); defer b.mu.Unlock(); return b.unavailable })
+	waitForSpeech(t, "不能用", func() bool { b.mu.Lock(); defer b.mu.Unlock(); return b.unavailable })
 	b.speak("乙", voiceTuning{1, 0}, nil)
 	time.Sleep(20 * time.Millisecond)
 	if calls != 1 {
@@ -201,13 +201,13 @@ func TestVoiceNotificationsHub(t *testing.T) {
 	h, tv := newTestHub(t)
 	id := tv.newDraft()
 	tv.send(map[string]any{"cmd": "setting", "key": "voiceNotifications", "value": true})
-	waitFor(t, "試聽句", func() bool { s := f.startedList(); return len(s) == 1 && s[0] == voiceEnabledSample })
+	waitForSpeech(t, "試聽句", func() bool { s := f.startedList(); return len(s) == 1 && s[0] == voiceEnabledSample })
 	tv.send(map[string]any{"cmd": "send", "conversationId": id, "text": "你好"})
 	tv.wait("閃", func(m map[string]any) bool {
 		return m["type"] == "flash" && m["conversationId"] == id && m["speaking"] == nil
 	})
 	tv.wait("念的時候再閃", func(m map[string]any) bool { return m["type"] == "flash" && m["speaking"] == true })
-	waitFor(t, "念完成", func() bool {
+	waitForSpeech(t, "念完成", func() bool {
 		s := f.startedList()
 		return len(s) == 2 && s[1] == "「你好」已完成：收到：你好"
 	})
@@ -218,13 +218,13 @@ func TestVoiceNotificationsHub(t *testing.T) {
 		t.Fatalf("預設語速音調：%v", tn)
 	}
 	tv.send(map[string]any{"cmd": "send", "conversationId": id, "text": "跑個工具"})
-	waitFor(t, "念核准", func() bool {
+	waitForSpeech(t, "念核准", func() bool {
 		s := f.startedList()
 		return len(s) == 3 && s[2] == "「你好」要執行指令，等你核准"
 	})
 	// 調語速：存正規化的值、念試聽句
 	tv.send(map[string]any{"cmd": "setting", "key": "voiceSpeed", "value": 9.0})
-	waitFor(t, "試聽語速", func() bool { s := f.startedList(); return len(s) == 4 && s[3] == voiceTuningSample })
+	waitForSpeech(t, "試聽語速", func() bool { s := f.startedList(); return len(s) == 4 && s[3] == voiceTuningSample })
 	h.mu.Lock()
 	sp := h.setting("voiceSpeed")
 	h.mu.Unlock()
@@ -233,12 +233,12 @@ func TestVoiceNotificationsHub(t *testing.T) {
 	}
 	// 使用者按停止的那一輪不念
 	tv.send(map[string]any{"cmd": "approve", "conversationId": id, "itemId": pendingItemID(h, id), "choice": "deny", "message": "不要"})
-	waitFor(t, "核准那一輪結束", func() bool { h.mu.Lock(); defer h.mu.Unlock(); return !h.convs[id].running })
-	waitFor(t, "念完成", func() bool { return len(f.startedList()) == 5 })
+	waitForSpeech(t, "核准那一輪結束", func() bool { h.mu.Lock(); defer h.mu.Unlock(); return !h.convs[id].running })
+	waitForSpeech(t, "念完成", func() bool { return len(f.startedList()) == 5 })
 	tv.send(map[string]any{"cmd": "send", "conversationId": id, "text": "慢一點"})
-	waitFor(t, "執行中", func() bool { h.mu.Lock(); defer h.mu.Unlock(); return h.convs[id].running })
+	waitForSpeech(t, "執行中", func() bool { h.mu.Lock(); defer h.mu.Unlock(); return h.convs[id].running })
 	tv.send(map[string]any{"cmd": "stop", "conversationId": id})
-	waitFor(t, "停止", func() bool { h.mu.Lock(); defer h.mu.Unlock(); return !h.convs[id].running })
+	waitForSpeech(t, "停止", func() bool { h.mu.Lock(); defer h.mu.Unlock(); return !h.convs[id].running })
 	time.Sleep(150 * time.Millisecond)
 	if n := len(f.startedList()); n != 5 {
 		t.Fatalf("按停止的那一輪不該念：%v", f.startedList())
