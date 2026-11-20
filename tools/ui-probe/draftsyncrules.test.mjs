@@ -7,7 +7,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const source = readFileSync(path.resolve(here, '..', '..', 'src', 'Myriagent', 'Web', 'draftsyncrules.js'), 'utf8');
+const source = readFileSync(path.resolve(here, '..', '..', 'web', 'draftsyncrules.js'), 'utf8');
 const D = await import('data:text/javascript;base64,' + Buffer.from(source + '\n// draftsyncrules.test\n', 'utf8').toString('base64'));
 
 const act = (o) => D.remoteDraftAction({ focused: false, lastInputAt: 0, now: 100000, ...o });

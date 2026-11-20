@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repo = path.resolve(here, '..', '..');
-const webDir = path.join(repo, 'src', 'Myriagent', 'Web');
+const webDir = path.join(repo, 'web');
 
 let importSeq = 0;
 /** 以 data: URL 匯入 web 底下的模組（沒有 import 的規則模組才能這樣做） */

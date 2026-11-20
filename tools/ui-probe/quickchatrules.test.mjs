@@ -7,7 +7,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const source = readFileSync(path.resolve(here, '..', '..', 'src', 'Myriagent', 'Web', 'quickchatrules.js'), 'utf8');
+const source = readFileSync(path.resolve(here, '..', '..', 'web', 'quickchatrules.js'), 'utf8');
 const Q = await import('data:text/javascript;base64,' + Buffer.from(source + '\n// quickchatrules.test\n', 'utf8').toString('base64'));
 
 test('沒存過：靠右上角、寬 420、高為視窗的 70%、在頂端列下面', () => {

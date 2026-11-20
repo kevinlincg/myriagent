@@ -8,7 +8,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const webDir = path.resolve(here, '..', '..', 'src', 'Myriagent', 'Web');
+const webDir = path.resolve(here, '..', '..', 'web');
 const load = (name) => import('data:text/javascript;base64,' + Buffer.from(readFileSync(path.join(webDir, name), 'utf8') + '\n// diffrules.test\n', 'utf8').toString('base64'));
 const D = await load('diffrules.js');
 const S = await load('syntaxrules.js');

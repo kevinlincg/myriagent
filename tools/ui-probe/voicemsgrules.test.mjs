@@ -9,7 +9,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const webDir = path.resolve(here, '..', '..', 'src', 'Myriagent', 'Web');
+const webDir = path.resolve(here, '..', '..', 'web');
 const source = readFileSync(path.join(webDir, 'voicemsgrules.js'), 'utf8');
 const V = await import('data:text/javascript;base64,' + Buffer.from(source + '\n// voicemsgrules.test\n', 'utf8').toString('base64'));
 

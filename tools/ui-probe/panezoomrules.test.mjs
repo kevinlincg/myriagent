@@ -7,7 +7,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const source = readFileSync(path.resolve(here, '..', '..', 'src', 'Myriagent', 'Web', 'panezoomrules.js'), 'utf8');
+const source = readFileSync(path.resolve(here, '..', '..', 'web', 'panezoomrules.js'), 'utf8');
 const Z = await import('data:text/javascript;base64,' + Buffer.from(source + '\n// panezoomrules.test\n', 'utf8').toString('base64'));
 
 const ws = { top: 40, bottom: 840, left: 260, right: 1240, width: 980, height: 800 };

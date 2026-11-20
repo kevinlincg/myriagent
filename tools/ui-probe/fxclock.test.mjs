@@ -9,7 +9,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const source = readFileSync(path.resolve(here, '..', '..', 'src', 'Myriagent', 'Web', 'fxclock.js'), 'utf8');
+const source = readFileSync(path.resolve(here, '..', '..', 'web', 'fxclock.js'), 'utf8');
 const VSYNC = 1000 / 60;
 
 /** 假的瀏覽器：計時器、requestAnimationFrame（每個 VSYNC 一格）、performance.now；frames 記下有回呼要跑的影格時間 */

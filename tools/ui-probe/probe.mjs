@@ -42,7 +42,7 @@ import { fakeMic } from './fake-mic.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 // MYRIAGENT_PROBE_WEB：改用別的網頁資料夾（例如 git archive 取出的舊版，做前後比較；--perf 的量測用）
-const WEB = process.env.MYRIAGENT_PROBE_WEB || path.resolve(here, '..', '..', 'src', 'Myriagent', 'Web');
+const WEB = process.env.MYRIAGENT_PROBE_WEB || path.resolve(here, '..', '..', 'web');
 const OUT = path.join(here, 'out');
 const ORIGIN = F.ORIGIN;
 // 與宿主回應 index.html 時帶的 CSP 相同

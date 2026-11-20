@@ -21,7 +21,7 @@ import { runRemoteAccounts, REMOTE_ACCOUNT_CHECKS } from './remote-accounts-scen
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.resolve(here, '..', '..');
-const WEB = path.join(REPO, 'src', 'Myriagent', 'Web');
+const WEB = path.join(REPO, 'web');
 const WWWROOT = path.join(REPO, 'src', 'MyriagentHub', 'wwwroot');
 const OUT = path.join(here, 'out-remote');
 const ORIGIN = RF.ORIGIN;
